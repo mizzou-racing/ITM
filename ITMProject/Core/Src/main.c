@@ -21,8 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,9 +69,11 @@ static void MX_ADC1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint16_t raw; // unsigned 16 bit integer to store ADC reading
+  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
+//  uint16_t resistance;
   uint16_t resistance;
-  char msgBuffer[25]; // Transfer raw message over UART
+//  float temperature;
+  char msgBuffer[100]; // Transfer raw message over UART
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -116,14 +117,17 @@ int main(void)
 	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
-	raw = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-	resistance = volts_to_temp(raw);
+
+	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
+	resistance = volts_to_resistance(raw_ADC_output);
+//	temperature = resistance_to_temperature(resistance);
 
 	// Set GPIO PA10 Low
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
-	sprintf(msgBuffer, "T: %hu\r\nraw: %hu\r\n", resistance, raw);
+//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %0.2f temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
+	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu\r\n", raw_ADC_output, resistance);
 
 	// Transmit message in msgBuffer over UART
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
