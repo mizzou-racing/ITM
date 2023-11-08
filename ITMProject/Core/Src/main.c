@@ -18,6 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#define R_PULLUP 10000
+#define ADC_VOLT_REF 4096
+#define CALIBRATION_RESISTANCE 10000
+#define CALIBRATION_TEMPERATURE 298
+#define THERMISTOR_BETA 3435
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -71,9 +76,9 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
 //  uint16_t resistance;
-  uint16_t resistance;
-//  float temperature;
+  uint16_t temperature;
   char msgBuffer[100]; // Transfer raw message over UART
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -97,7 +102,25 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-
+//  float look_up_table[2][110];
+//
+//  for(int i = 0; i < 2; i++)
+//  {
+//   	for(int j = 0; j <= 110; j++)
+//   	{
+//   		if(i == 0)
+//   		{
+//   			look_up_table[i][j] = (float)(((ADC_VOLT_REF*CALIBRATION_RESISTANCE)*exp(THERMISTOR_BETA*(((float)1/(263 + j)) - ((float)1/CALIBRATION_TEMPERATURE)))))
+//   							      /((R_PULLUP + (CALIBRATION_RESISTANCE*exp(THERMISTOR_BETA*(((float)1/(263 + j)) - ((float)1/CALIBRATION_TEMPERATURE))))));
+//   		}
+//   		else if(i == 1)
+//   		{
+//   			look_up_table[i][j] = 263 + j;
+//   			sprintf(msgBuffer, "ADC_output: %f temperature: %f\r\n", look_up_table[i - 1][j], look_up_table[i][j]);
+//   			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//   		}
+//    }
+//  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -119,15 +142,17 @@ int main(void)
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 
 	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-	resistance = volts_to_resistance(raw_ADC_output);
+//	resistance = volts_to_resistance(raw_ADC_output);
 //	temperature = resistance_to_temperature(resistance);
+
+	temperature = binary_search(raw_ADC_output);
 
 	// Set GPIO PA10 Low
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
-//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %0.2f temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
-	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu\r\n", raw_ADC_output, resistance);
+//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
+	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
 
 	// Transmit message in msgBuffer over UART
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);

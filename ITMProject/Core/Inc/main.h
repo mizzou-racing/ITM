@@ -32,8 +32,10 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include "volts_to_temp.h"
+#include "therm_temperature_lookup.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
