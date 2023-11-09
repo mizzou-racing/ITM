@@ -136,6 +136,8 @@ int main(void)
 	// Set GPIO PA10 High
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
 
+	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_2 | GPIO_PIN_10, GPIO_PIN_SET);
+
 	// Get ADC Value
 	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
