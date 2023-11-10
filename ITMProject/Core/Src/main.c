@@ -18,11 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#define R_PULLUP 10000
-#define ADC_VOLT_REF 4096
-#define CALIBRATION_RESISTANCE 10000
-#define CALIBRATION_TEMPERATURE 298
-#define THERMISTOR_BETA 3435
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -74,9 +69,9 @@ static void MX_ADC1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
+  uint16_t raw_ADC_output[2]; // unsigned 16 bit integer to store ADC reading
 //  uint16_t resistance;
-  uint16_t temperature;
+  uint16_t temperature[2];
   char msgBuffer[100]; // Transfer raw message over UART
 
   /* USER CODE END 1 */
@@ -136,31 +131,27 @@ int main(void)
 	// Set GPIO PA10 High
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
 
-	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_2 | GPIO_PIN_10, GPIO_PIN_SET);
-
 	// Get ADC Value
 	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 
-	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-//	resistance = volts_to_resistance(raw_ADC_output);
-//	temperature = resistance_to_temperature(resistance);
+	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
 
-	temperature = binary_search(raw_ADC_output);
+	temperature[0] = binary_search(raw_ADC_output[0]);
+
 
 	// Set GPIO PA10 Low
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
-//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
-	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
+	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output[0], temperature[0]);
 
 	// Transmit message in msgBuffer over UART
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
-	// Add delay of 1 second
-	HAL_Delay(500);
+	// Add delay of 2 seconds
+	HAL_Delay(2000);
 
     /* USER CODE END WHILE */
 
@@ -248,13 +239,22 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
+
   sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  sConfig.Rank = 1;
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+//  sConfig.Channel = ADC_CHANNEL_0;
+//  sConfig.Rank = ADC_REGULAR_RANK_1;
+//  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
