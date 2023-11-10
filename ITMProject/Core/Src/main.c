@@ -104,10 +104,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
+//  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
 //  uint16_t resistance;
-  uint16_t temperature;
-  char msgBuffer[100]; // Transfer raw message over UART
+//  uint16_t temperature;
+//  char msgBuffer[100]; // Transfer raw message over UART
 
   /* USER CODE END 1 */
 
@@ -158,7 +158,7 @@ int main(void)
 	  {
 		  for(int i = 0; i < RxData[1]; i++)
 		  {
-			  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+			  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_13);
 			  HAL_Delay(RxData[0]);
 		  }
 		  dataCheck = 0;
@@ -173,31 +173,31 @@ int main(void)
 	   PinState: specifies the value to be written to the selected bit. This parameter can be one of the
 	   GPIO_PinState enum values: GPIO_PIN_SET or GPIO_PIN_RESET */
 	// Set GPIO PA10 High
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
-
-	// Get ADC Value
-	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
-	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
-
-	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-//	resistance = volts_to_resistance(raw_ADC_output);
-//	temperature = resistance_to_temperature(resistance);
-
-	temperature = binary_search(raw_ADC_output);
-
-	// Set GPIO PA10 Low
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
-
-	// Convert raw int to char to be displayed
-//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
-	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
-
-	// Transmit message in msgBuffer over UART
-	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-
-	// Add delay of 1 second
-	HAL_Delay(500);
+//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+//
+//	// Get ADC Value
+//	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
+//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
+//	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
+//
+//	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
+////	resistance = volts_to_resistance(raw_ADC_output);
+////	temperature = resistance_to_temperature(resistance);
+//
+//	temperature = binary_search(raw_ADC_output);
+//
+//	// Set GPIO PA10 Low
+//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
+//
+//	// Convert raw int to char to be displayed
+////	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
+//	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
+//
+//	// Transmit message in msgBuffer over UART
+//	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//
+//	// Add delay of 1 second
+//	HAL_Delay(500);
 
     /* USER CODE END WHILE */
 
@@ -314,11 +314,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 2;
+  hcan.Init.Prescaler = 16;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_1TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
