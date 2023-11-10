@@ -136,16 +136,21 @@ int main(void)
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig[0]);
 	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
 
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig[1]);
+  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1);
+
 	temperature[0] = binary_search(raw_ADC_output[0]);
+  temperature[1] = binary_search(raw_ADC_output[1]);
 
 
 	// Set GPIO PA10 Low
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
-	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output[0], temperature[0]);
+	sprintf(msgBuffer, "ADC_read_1: %hu temperature_1: %hu\r\nADC_read_2: %hu temperature_2: %hu\r\n\n\n", raw_ADC_output[0], temperature[0], raw_ADC_output[1], temperature[1]);
 
 	// Transmit message in msgBuffer over UART
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
@@ -217,7 +222,7 @@ static void MX_ADC1_Init(void)
 
   /* USER CODE END ADC1_Init 0 */
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+  ADC_ChannelConfTypeDef sConfig[2] = {{0}};
 
   /* USER CODE BEGIN ADC1_Init 1 */
 
@@ -240,13 +245,13 @@ static void MX_ADC1_Init(void)
   /** Configure Regular Channel
   */
 
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 1;
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+  sConfig[0].Channel = ADC_CHANNEL_0;
+  sConfig[0].Rank = 1;
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig[0]);
 
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = 2;
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+  sConfig.Channel[1] = ADC_CHANNEL_1;
+  sConfig.Rank[1] = 2;
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig[1]);
 
 //  sConfig.Channel = ADC_CHANNEL_0;
 //  sConfig.Rank = ADC_REGULAR_RANK_1;
