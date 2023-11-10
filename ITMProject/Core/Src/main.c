@@ -136,11 +136,11 @@ int main(void)
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig[0]);
+  HAL_ADC_ConfigChannel(&hadc1, sConfig);
 	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
 
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig[1]);
-  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1);
+  HAL_ADC_ConfigChannel(&hadc1, sConfig + 1*sizeof(ADC_ChannelConfTypeDef));     // this function wants pointers passed in -- the name of an array is itself a pointer, so I had to remove
+  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1); // the & operator
 
 	temperature[0] = binary_search(raw_ADC_output[0]);
   temperature[1] = binary_search(raw_ADC_output[1]);
@@ -249,8 +249,8 @@ static void MX_ADC1_Init(void)
   sConfig[0].Rank = 1;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig[0]);
 
-  sConfig.Channel[1] = ADC_CHANNEL_1;
-  sConfig.Rank[1] = 2;
+  sConfig[1].Channel = ADC_CHANNEL_1;
+  sConfig[1].Rank = 2;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig[1]);
 
 //  sConfig.Channel = ADC_CHANNEL_0;
