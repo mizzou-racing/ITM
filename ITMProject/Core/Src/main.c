@@ -42,6 +42,7 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+ADC_ChannelConfTypeDef sConfig[2] = {{0}};
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -133,13 +134,16 @@ int main(void)
 
 	// Get ADC Value
 	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
+  HAL_ADC_ConfigChannel(&hadc1, sConfig);
 	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 
-  HAL_ADC_ConfigChannel(&hadc1, sConfig);
 	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
 
+
   HAL_ADC_ConfigChannel(&hadc1, sConfig + 1*sizeof(ADC_ChannelConfTypeDef));     // this function wants pointers passed in -- the name of an array is itself a pointer, so I had to remove
+	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
+  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
   raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1); // the & operator
 
 	temperature[0] = binary_search(raw_ADC_output[0]);
@@ -222,7 +226,6 @@ static void MX_ADC1_Init(void)
 
   /* USER CODE END ADC1_Init 0 */
 
-  ADC_ChannelConfTypeDef sConfig[2] = {{0}};
 
   /* USER CODE BEGIN ADC1_Init 1 */
 
