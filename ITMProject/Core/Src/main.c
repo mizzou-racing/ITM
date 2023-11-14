@@ -48,6 +48,12 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+CAN_TxHeaderTypeDef TxHeader;
+
+// Hold the messages
+uint8_t TxData[8] = {1,2,3,4,5,6,7,8};
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,37 +69,27 @@ static void MX_CAN_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// struct handles to hold header of T or R message
-CAN_TxHeaderTypeDef TxHeader;
-CAN_RxHeaderTypeDef RxHeader;
-
-// Hold the messages
-uint8_t TxData[8];
-uint8_t RxData[8];
-
-uint32_t TxMailbox;
-
-int dataCheck = 1;
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == GPIO_PIN_13)
-	{
-		TxData[0] = 100; // ms Delay
-		TxData[1] = 10;  // Loop rep
-
-		HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
-	}
-}
-
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
-	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
-	if(RxHeader.DLC == 2)
-	{
-		dataCheck = 1;
-	}
-}
+//int dataCheck = 1;
+//
+//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+//{
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
+//		TxData[0] = 100; // ms Delay
+//		TxData[1] = 10;  // Loop rep
+//
+//		HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
+//	}
+//}
+//
+//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+//{
+//	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
+//	if(RxHeader.DLC == 2)
+//	{
+//		dataCheck = 1;
+//	}
+//}
 
 /* USER CODE END 0 */
 
@@ -107,7 +103,7 @@ int main(void)
 //  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
 //  uint16_t resistance;
 //  uint16_t temperature;
-//  char msgBuffer[100]; // Transfer raw message over UART
+//  char msgBuffer[100] = "Test Message\n"; // Transfer raw message over UART
 
   /* USER CODE END 1 */
 
@@ -134,19 +130,7 @@ int main(void)
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
 
-  // Start the CAN module. After this call the bus is ready to receive and send messages
-  HAL_CAN_Start(&hcan);
-
-  // Activate the ability to use interrupts
-  // CAN_IT_RX_FIFO0_MSG_PENDING specifies the first notification received triggers an interrupt to handle the message
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
-
-  TxHeader.DLC = 2; // Data length
-  TxHeader.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
-  TxHeader.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-  TxHeader.StdId = 0x103; // ID of the sender
-
-
+  uint32_t TxMailbox = CAN_TX_MAILBOX0;
 
   /* USER CODE END 2 */
 
@@ -154,17 +138,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(dataCheck == 1)
+	  if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	  {
-		  for(int i = 0; i < RxData[1]; i++)
+		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
 		  {
-			  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_13);
-			  HAL_Delay(RxData[0]);
+			  Error_Handler();
 		  }
-		  dataCheck = 0;
 	  }
+	  HAL_Delay(10000);
 
-
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+//	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//	  HAL_Delay(500);
+//	  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
+//	  HAL_Delay(500);
 
 	/* void HAL_GPIO_WritePin (GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)
 	   Sets or clears the selected data port bit.
@@ -174,9 +162,9 @@ int main(void)
 	   GPIO_PinState enum values: GPIO_PIN_SET or GPIO_PIN_RESET */
 	// Set GPIO PA10 High
 //	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
-//
-//	// Get ADC Value
-//	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
+
+	// Get ADC Value
+	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
 //	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
 //	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
 //
@@ -185,16 +173,22 @@ int main(void)
 ////	temperature = resistance_to_temperature(resistance);
 //
 //	temperature = binary_search(raw_ADC_output);
-//
-//	// Set GPIO PA10 Low
+
+	// Set GPIO PA10 Low
 //	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
-//
-//	// Convert raw int to char to be displayed
-////	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
+
+	// Convert raw int to char to be displayed
+//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
 //	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
-//
-//	// Transmit message in msgBuffer over UART
-//	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+
+	// Transmit message in msgBuffer over UART
+//	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+
+//	if(uart_status != HAL_OK)
+//	{
+//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//		HAL_Delay(1000);
+//	}
 //
 //	// Add delay of 1 second
 //	HAL_Delay(500);
@@ -219,12 +213,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -239,12 +234,12 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
-  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -314,11 +309,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 16;
+  hcan.Init.Prescaler = 18;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -334,17 +329,32 @@ static void MX_CAN_Init(void)
   	CAN_FilterTypeDef canfilterconfig;
 
     canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
-    canfilterconfig.FilterBank = 18;
+    canfilterconfig.FilterBank = 0;
     canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-    canfilterconfig.FilterIdHigh = 0x103<<5;
-    canfilterconfig.FilterIdLow = 0;
-    canfilterconfig.FilterMaskIdHigh = 0x103<<5;
+    canfilterconfig.FilterIdHigh = 0x0000;
+    canfilterconfig.FilterIdLow = 0x0000;
+    canfilterconfig.FilterMaskIdHigh = 0x0000;
     canfilterconfig.FilterMaskIdLow = 0x0000;
     canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
     canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
-    canfilterconfig.SlaveStartFilterBank = 20;
+    canfilterconfig.SlaveStartFilterBank = 0;
 
-    HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
+    if(HAL_CAN_ConfigFilter(&hcan, &canfilterconfig) != HAL_OK)
+    {
+    	Error_Handler();
+    }
+
+    if(HAL_CAN_Start(&hcan) != HAL_OK)
+    {
+  	  Error_Handler();
+    }
+
+    TxHeader.DLC = 8; // Data length
+    TxHeader.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
+    TxHeader.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader.StdId = 0x102; // ID of the sender
+    TxHeader.ExtId = 0x01;
+    TxHeader.TransmitGlobalTime = DISABLE;
 
   /* USER CODE END CAN_Init 2 */
 
@@ -401,7 +411,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
@@ -409,16 +419,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD2_Pin PA10 */
-  GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_10;
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -439,6 +445,9 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  HAL_Delay(100);
+	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
   }
   /* USER CODE END Error_Handler_Debug */
 }
