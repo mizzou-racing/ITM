@@ -42,7 +42,6 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
-ADC_ChannelConfTypeDef sConfig[2] = {{0}};
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -70,7 +69,7 @@ static void MX_ADC1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint16_t raw_ADC_output[2]; // unsigned 16 bit integer to store ADC reading
+  uint32_t raw_ADC_output[2]; // unsigned 16 bit integer to store ADC reading
 //  uint16_t resistance;
   uint16_t temperature[2];
   char msgBuffer[100]; // Transfer raw message over UART
@@ -134,27 +133,29 @@ int main(void)
 
 	// Get ADC Value
 	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
-  HAL_ADC_ConfigChannel(&hadc1, sConfig);
-	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
+//  HAL_ADC_ConfigChannel(&hadc1, sConfig);
+//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
+//	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
+//
+//	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
+//
+//
+//  HAL_ADC_ConfigChannel(&hadc1, sConfig + 1*sizeof(ADC_ChannelConfTypeDef));     // this function wants pointers passed in -- the name of an array is itself a pointer, so I had to remove
+//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
+//  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+//  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1); // the & operator
 
-	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-
-
-  HAL_ADC_ConfigChannel(&hadc1, sConfig + 1*sizeof(ADC_ChannelConfTypeDef));     // this function wants pointers passed in -- the name of an array is itself a pointer, so I had to remove
-	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1); // the & operator
+	HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 2);
 
 	temperature[0] = binary_search(raw_ADC_output[0]);
-  temperature[1] = binary_search(raw_ADC_output[1]);
+	temperature[1] = binary_search(raw_ADC_output[1]);
 
 
 	// Set GPIO PA10 Low
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
-	sprintf(msgBuffer, "ADC_read_1: %hu temperature_1: %hu\r\nADC_read_2: %hu temperature_2: %hu\r\n\n\n", raw_ADC_output[0], temperature[0], raw_ADC_output[1], temperature[1]);
+	sprintf(msgBuffer, "ADC_read_1: %lu temperature_1: %hu\r\nADC_read_2: %lu temperature_2: %hu\r\n\n\n", raw_ADC_output[0], temperature[0], raw_ADC_output[1], temperature[1]);
 
 	// Transmit message in msgBuffer over UART
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
@@ -226,6 +227,7 @@ static void MX_ADC1_Init(void)
 
   /* USER CODE END ADC1_Init 0 */
 
+  ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
 
@@ -239,7 +241,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 1;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -247,22 +249,13 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-
-  sConfig[0].Channel = ADC_CHANNEL_0;
-  sConfig[0].Rank = 1;
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig[0]);
-
-  sConfig[1].Channel = ADC_CHANNEL_1;
-  sConfig[1].Rank = 2;
-  HAL_ADC_ConfigChannel(&hadc1, &sConfig[1]);
-
-//  sConfig.Channel = ADC_CHANNEL_0;
-//  sConfig.Rank = ADC_REGULAR_RANK_1;
-//  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
