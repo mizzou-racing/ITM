@@ -53,7 +53,6 @@ CAN_TxHeaderTypeDef TxHeader;
 // Hold the messages
 uint8_t TxData[8] = {1,2,3,4,5,6,7,8};
 
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,28 +68,6 @@ static void MX_CAN_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-//int dataCheck = 1;
-//
-//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-//{
-//	if(GPIO_Pin == GPIO_PIN_13)
-//	{
-//		TxData[0] = 100; // ms Delay
-//		TxData[1] = 10;  // Loop rep
-//
-//		HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
-//	}
-//}
-//
-//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-//{
-//	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
-//	if(RxHeader.DLC == 2)
-//	{
-//		dataCheck = 1;
-//	}
-//}
-
 /* USER CODE END 0 */
 
 /**
@@ -100,10 +77,6 @@ static void MX_CAN_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-//  uint16_t raw_ADC_output; // unsigned 16 bit integer to store ADC reading
-//  uint16_t resistance;
-//  uint16_t temperature;
-//  char msgBuffer[100] = "Test Message\n"; // Transfer raw message over UART
 
   /* USER CODE END 1 */
 
@@ -146,52 +119,6 @@ int main(void)
 		  }
 	  }
 	  HAL_Delay(10000);
-
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
-//	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-//	  HAL_Delay(500);
-//	  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
-//	  HAL_Delay(500);
-
-	/* void HAL_GPIO_WritePin (GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)
-	   Sets or clears the selected data port bit.
-	   GPIOx: where x can be (A..G depending on device used) to select the GPIO peripheral
-	   GPIO_Pin: specifies the port bit to be written. This parameter can be one of GPIO_PIN_x where x can be (0-15).
-	   PinState: specifies the value to be written to the selected bit. This parameter can be one of the
-	   GPIO_PinState enum values: GPIO_PIN_SET or GPIO_PIN_RESET */
-	// Set GPIO PA10 High
-//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
-
-	// Get ADC Value
-	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
-//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-//	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
-//
-//	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-////	resistance = volts_to_resistance(raw_ADC_output);
-////	temperature = resistance_to_temperature(resistance);
-//
-//	temperature = binary_search(raw_ADC_output);
-
-	// Set GPIO PA10 Low
-//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
-
-	// Convert raw int to char to be displayed
-//	sprintf(msgBuffer, "raw_ADC_output: %hu resistance: %hu temperature: %0.2f\r\n", raw_ADC_output, resistance, temperature);
-//	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
-
-	// Transmit message in msgBuffer over UART
-//	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-
-//	if(uart_status != HAL_OK)
-//	{
-//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-//		HAL_Delay(1000);
-//	}
-//
-//	// Add delay of 1 second
-//	HAL_Delay(500);
 
     /* USER CODE END WHILE */
 
