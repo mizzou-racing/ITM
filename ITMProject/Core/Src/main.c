@@ -72,7 +72,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   uint32_t raw_ADC_output[2]; // unsigned 16 bit integer to store ADC reading
-//  uint16_t resistance;
   uint32_t temperature[2];
   char msgBuffer[100]; // Transfer raw message over UART
 
@@ -100,53 +99,14 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-//  float look_up_table[2][110];
-//
-//  for(int i = 0; i < 2; i++)
-//  {
-//   	for(int j = 0; j <= 110; j++)
-//   	{
-//   		if(i == 0)
-//   		{
-//   			look_up_table[i][j] = (float)(((ADC_VOLT_REF*CALIBRATION_RESISTANCE)*exp(THERMISTOR_BETA*(((float)1/(263 + j)) - ((float)1/CALIBRATION_TEMPERATURE)))))
-//   							      /((R_PULLUP + (CALIBRATION_RESISTANCE*exp(THERMISTOR_BETA*(((float)1/(263 + j)) - ((float)1/CALIBRATION_TEMPERATURE))))));
-//   		}
-//   		else if(i == 1)
-//   		{
-//   			look_up_table[i][j] = 263 + j;
-//   			sprintf(msgBuffer, "ADC_output: %f temperature: %f\r\n", look_up_table[i - 1][j], look_up_table[i][j]);
-//   			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//   		}
-//    }
-//  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	/* void HAL_GPIO_WritePin (GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)
-	   Sets or clears the selected data port bit.
-	   GPIOx: where x can be (A..G depending on device used) to select the GPIO peripheral
-	   GPIO_Pin: specifies the port bit to be written. This parameter can be one of GPIO_PIN_x where x can be (0-15).
-	   PinState: specifies the value to be written to the selected bit. This parameter can be one of the
-	   GPIO_PinState enum values: GPIO_PIN_SET or GPIO_PIN_RESET */
-	// Set GPIO PA10 High
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
-
-	// Get ADC Value
-	// HAL_ADCEx_Calibration_Start(&hadc1); //attempting to do a self calibration of the first ADC channel
-//  HAL_ADC_ConfigChannel(&hadc1, sConfig);
-//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-//	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
-//
-//	raw_ADC_output[0] = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
-//
-//
-//  HAL_ADC_ConfigChannel(&hadc1, sConfig + 1*sizeof(ADC_ChannelConfTypeDef));     // this function wants pointers passed in -- the name of an array is itself a pointer, so I had to remove
-//	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
-//  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-//  raw_ADC_output[1] = HAL_ADC_GetValue(&hadc1); // the & operator
 
 	HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 2);
 
@@ -163,7 +123,7 @@ int main(void)
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
 	// Add delay of 2 seconds
-	HAL_Delay(2000);
+	HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
