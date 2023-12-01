@@ -77,6 +77,9 @@ static void MX_CAN_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  int16_t raw_ADC_output; // signed 16 bit integer to store ADC reading
+  int16_t temperature;
+  char msgBuffer[100]; // Transfer raw message over UART (prolly dont need 100 but for assurances)
 
   /* USER CODE END 1 */
 
@@ -102,15 +105,15 @@ int main(void)
   MX_ADC1_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
-
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
-
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    // Can implementation
 	  if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	  {
 		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
@@ -119,6 +122,35 @@ int main(void)
 		  }
 	  }
 	  HAL_Delay(10000);
+
+	/* void HAL_GPIO_WritePin (GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)
+	   Sets or clears the selected data port bit.
+	   GPIOx: where x can be (A..G depending on device used) to select the GPIO peripheral
+	   GPIO_Pin: specifies the port bit to be written. This parameter can be one of GPIO_PIN_x where x can be (0-15).
+	   PinState: specifies the value to be written to the selected bit. This parameter can be one of the
+	   GPIO_PinState enum values: GPIO_PIN_SET or GPIO_PIN_RESET */
+	// Set GPIO PA10 High
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+
+	// Get ADC Value
+	HAL_ADC_Start(&hadc1); // Enables ADC to start conversion &hadc1 is the ADC handle name
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); // Waits until conversion is handled
+
+	raw_ADC_output = HAL_ADC_GetValue(&hadc1); // Retrieve conversion results
+
+	temperature = binary_search(raw_ADC_output);
+
+	// Set GPIO PA10 Low
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
+
+	// Convert raw int to char to be displayed
+	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
+
+	// Transmit message in msgBuffer over UART
+	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+
+	// Add delay of 1 second
+	HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
