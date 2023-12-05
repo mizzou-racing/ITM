@@ -54,5 +54,12 @@ uint16_t binary_search(uint16_t adc_target)
 		}
 		mid = start + (end - start) / 2;
 	}
-	return look_up_temperature[0][mid];
+	if(look_up_temperature[0][mid] >= 373 && look_up_temperature[0][mid] <= 263)
+	{
+		return 0;
+	}
+	else
+	{
+		return look_up_temperature[0][mid];
+	}
 }
