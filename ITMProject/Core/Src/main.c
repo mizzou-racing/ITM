@@ -76,7 +76,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint32_t raw_ADC_output[23]; // unsigned 16 bit integer to store ADC reading
   uint32_t temperature[23];
-  char msgBuffer[100]; // Transfer raw message over UART
+  char msgBuffer[100] = {0}; // Transfer raw message over UART
   uint16_t time_val;
 
   /* USER CODE END 1 */
@@ -105,12 +105,12 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-   HAL_TIM_Base_Start(&htim1);
-   time_val = __HAL_TIM_GET_COUNTER(&htim1);
-   HAL_Delay(10000);
-   time_val = __HAL_TIM_GET_COUNTER(&htim1) - time_val;
-   sprintf(msgBuffer, "time_val = %d\r\n", time_val);
-   HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+  HAL_TIM_Base_Start(&htim1);
+  time_val = __HAL_TIM_GET_COUNTER(&htim1);
+  HAL_Delay(10000);
+  time_val = __HAL_TIM_GET_COUNTER(&htim1) - time_val;
+  sprintf(msgBuffer, "time_val = %d\r\n", time_val);
+  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
   /* USER CODE END 2 */
 
