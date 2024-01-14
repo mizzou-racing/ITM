@@ -107,7 +107,8 @@ int main(void)
 
   HAL_TIM_Base_Start(&htim1);
   time_val = __HAL_TIM_GET_COUNTER(&htim1);
-  HAL_Delay(10000);
+  // 16-bit timer able to measure up to 65.5 miliseconds then it wraps around
+  HAL_Delay(10);
   time_val = __HAL_TIM_GET_COUNTER(&htim1) - time_val;
   sprintf(msgBuffer, "time_val = %d\r\n", time_val);
   HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
