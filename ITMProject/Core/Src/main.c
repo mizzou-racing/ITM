@@ -51,7 +51,7 @@ UART_HandleTypeDef huart2;
 CAN_TxHeaderTypeDef TxHeader;
 
 // Hold the messages
-uint8_t TxData[8] = {1,2,3,4,5,6,7,8};
+uint8_t TxData[8] = {0};
 
 /* USER CODE END PV */
 
@@ -79,7 +79,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   int16_t raw_ADC_output; // signed 16 bit integer to store ADC reading
   int16_t temperature;
-  char msgBuffer[100]; // Transfer raw message over UART (prolly dont need 100 but for assurances)
+  char msgBuffer[100] = {0}; // Transfer raw message over UART (prolly dont need 100 but for assurances)
 
   /* USER CODE END 1 */
 
@@ -107,6 +107,26 @@ int main(void)
   /* USER CODE BEGIN 2 */
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
   
+  TxData[0] = MODULE_NUMBER;
+  TxData[1] = 1;
+  TxData[2] = 11;
+  TxData[3] = 6;
+  TxData[4] = 23;
+  TxData[5] = 22;
+  TxData[6] = 0;
+  TxData[7] = 68;
+//  sprintf(msgBuffer, "sizeof(TxData[7]) = %hu\r\n", TxData[7]);
+//  //  Transmit message in msgBuffer over UART
+//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+  for (int i = 0; i < 7; i++) {
+	  TxData[7] += TxData[i];
+  }
+
+//  memset(msgBuffer, '\0', 100);
+//  sprintf(msgBuffer, "TxData[7] = %hu\r\n", TxData[7]);
+//  //  Transmit message in msgBuffer over UART
+//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -121,7 +141,7 @@ int main(void)
 			  Error_Handler();
 		  }
 	  }
-	  HAL_Delay(10000);
+	  HAL_Delay(100);
 
 	/* void HAL_GPIO_WritePin (GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)
 	   Sets or clears the selected data port bit.
@@ -150,7 +170,7 @@ int main(void)
 	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
 	// Add delay of 1 second
-	HAL_Delay(1000);
+//	HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
