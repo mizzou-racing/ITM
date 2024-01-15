@@ -42,10 +42,15 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
-TIM_HandleTypeDef htim1;
+
+CAN_HandleTypeDef hcan;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+CAN_TxHeaderTypeDef TxHeader_bms;
+CAN_TxHeaderTypeDef TxHeader_general;
+CAN_TxHeaderTypeDef TxHeader_J1939;
 
 /* USER CODE END PV */
 
@@ -53,9 +58,9 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_ADC1_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_TIM1_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_CAN_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -72,12 +77,17 @@ static void MX_TIM1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint32_t raw_ADC_output[23];
-  int16_t temperature[23];
+  uint8_t TxData_bms[8] = {0};
+  uint8_t TxData_general[8] = {0};
+  uint8_t TxData_J1939[8] = {0};
+  uint32_t raw_ADC_output[23] = {0};
+  int16_t temperature[23] = {0};
   int16_t lowest_temp = 99;
   int16_t highest_temp = -10;
   int16_t average_temp = 0;
   char msgBuffer[100] = {0};
+  uint16_t claim_flag = 0;
+  uint16_t therm_count = 0;
 
   /* USER CODE END 1 */
 
@@ -100,10 +110,42 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_ADC1_Init();
   MX_USART2_UART_Init();
-  MX_TIM1_Init();
+  MX_ADC1_Init();
+  MX_CAN_Init();
   /* USER CODE BEGIN 2 */
+  uint32_t TxMailbox = CAN_TX_MAILBOX0;
+
+  TxData_bms[0] = MODULE_NUMBER;
+  TxData_bms[4] = 23;
+  TxData_bms[5] = 22;
+  TxData_bms[6] = 0;
+  TxData_bms[7] = 68;
+
+  TxData_general[0] = 0x00;
+  TxData_general[3] = 23;
+  TxData_general[6] = 22;
+  TxData_general[7] = 0;
+
+  TxData_J1939[0] = 0xF3; // Can ID of BMS?
+  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
+  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
+  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+  TxData_J1939[4] = 0x01; // dont know always either 0x00 or 0x08
+  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+  TxData_J1939[6] = 0x1E;
+  TxData_J1939[7] = 0x90;
+//  sprintf(msgBuffer, "sizeof(TxData[7]) = %hu\r\n", TxData[7]);
+//  //  Transmit message in msgBuffer over UART
+//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//  for (int i = 0; i < 7; i++) {
+//	  TxData_bms[7] += TxData_bms[i];
+//  }
+
+//  memset(msgBuffer, '\0', 100);
+//  sprintf(msgBuffer, "TxData[7] = %hu\r\n", TxData[7]);
+//  //  Transmit message in msgBuffer over UART
+//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
 //  HAL_TIM_Base_Start(&htim1);
 //  time_val = __HAL_TIM_GET_COUNTER(&htim1);
@@ -113,7 +155,7 @@ int main(void)
 //  sprintf(msgBuffer, "time_val = %d\r\n", time_val);
 //  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+//  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -171,16 +213,71 @@ int main(void)
 
 	average_temp = (average_temp / 23);
 
-	sprintf(msgBuffer, "Low = %d Average = %d High = %d\r\n", lowest_temp, average_temp, highest_temp);
-	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+	TxData_bms[1] = lowest_temp;
+	TxData_bms[2] = highest_temp;
+	TxData_bms[3] = average_temp;
+	for (int i = 0; i < 7; i++) {
+		TxData_bms[7] += TxData_bms[i];
+	}
 
-	// Add delay of 2 seconds
-	HAL_Delay(10000);
+	TxData_general[1] = therm_count;
+	TxData_general[2] = temperature[therm_count];
+	TxData_general[4] = lowest_temp;
+	TxData_general[5] = highest_temp;
+
+
+	therm_count++;
+	if(therm_count == 23)
+	{
+		therm_count = 0;
+	}
+
+	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
+	{
+	  for (int i = 0; i < 3; i++) {
+		  if (i == 0) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
+			  {
+//				  Error_Handler();
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+		  } else if (i == 1) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
+			  {
+//				  Error_Handler();
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+		  } else if ((i == 2) && (claim_flag == 1)) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
+			  {
+//				  Error_Handler();
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  claim_flag = 0;
+		  } else if (i == 2 && claim_flag == 0) {
+			  claim_flag = 1;
+		  }
+	  }
+	}
+
+	HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -377,48 +474,83 @@ static void MX_ADC1_Init(void)
 }
 
 /**
-  * @brief TIM1 Initialization Function
+  * @brief CAN Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM1_Init(void)
+static void MX_CAN_Init(void)
 {
 
-  /* USER CODE BEGIN TIM1_Init 0 */
+  /* USER CODE BEGIN CAN_Init 0 */
 
-  /* USER CODE END TIM1_Init 0 */
+  /* USER CODE END CAN_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  /* USER CODE BEGIN CAN_Init 1 */
 
-  /* USER CODE BEGIN TIM1_Init 1 */
-
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 79;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  /* USER CODE END CAN_Init 1 */
+  hcan.Instance = CAN1;
+  hcan.Init.Prescaler = 18;
+  hcan.Init.Mode = CAN_MODE_NORMAL;
+  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan.Init.TimeTriggeredMode = DISABLE;
+  hcan.Init.AutoBusOff = DISABLE;
+  hcan.Init.AutoWakeUp = DISABLE;
+  hcan.Init.AutoRetransmission = DISABLE;
+  hcan.Init.ReceiveFifoLocked = DISABLE;
+  hcan.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan) != HAL_OK)
   {
     Error_Handler();
   }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM1_Init 2 */
+  /* USER CODE BEGIN CAN_Init 2 */
 
-  /* USER CODE END TIM1_Init 2 */
+  	CAN_FilterTypeDef canfilterconfig;
+
+    canfilterconfig.FilterActivation = ENABLE;
+    canfilterconfig.FilterBank = 0;
+    canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+    canfilterconfig.FilterIdHigh = 0x0000;
+    canfilterconfig.FilterIdLow = 0x0000;
+    canfilterconfig.FilterMaskIdHigh = 0x0000;
+    canfilterconfig.FilterMaskIdLow = 0x0000;
+    canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    canfilterconfig.FilterScale = CAN_FILTERSCALE_16BIT;
+    canfilterconfig.SlaveStartFilterBank = 0;
+
+    if(HAL_CAN_ConfigFilter(&hcan, &canfilterconfig) != HAL_OK)
+    {
+    	Error_Handler();
+    }
+
+    if(HAL_CAN_Start(&hcan) != HAL_OK)
+    {
+  	  Error_Handler();
+    }
+
+    TxHeader_bms.DLC = 8; // Data length
+    TxHeader_bms.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_bms.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_bms.StdId = 0x00; // ID of the sender
+    TxHeader_bms.ExtId = 0x1839F383;
+    TxHeader_bms.TransmitGlobalTime = DISABLE;
+
+    TxHeader_general.DLC = 8; // Data length
+    TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_general.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_general.StdId = 0x00; // ID of the sender
+    TxHeader_general.ExtId = 0x1838F383;
+    TxHeader_general.TransmitGlobalTime = DISABLE;
+
+    TxHeader_J1939.DLC = 8; // Data length
+    TxHeader_J1939.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_J1939.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_J1939.StdId = 0x00; // ID of the sender
+    TxHeader_J1939.ExtId = 0x18EEFF83;
+    TxHeader_J1939.TransmitGlobalTime = DISABLE;
+
+  /* USER CODE END CAN_Init 2 */
 
 }
 
@@ -489,9 +621,6 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
@@ -500,23 +629,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : PB8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
