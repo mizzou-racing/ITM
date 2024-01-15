@@ -48,10 +48,13 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-CAN_TxHeaderTypeDef TxHeader;
+CAN_TxHeaderTypeDef TxHeader_bms;
+CAN_TxHeaderTypeDef TxHeader_general;
+CAN_TxHeaderTypeDef TxHeader_J1939;
 
 // Hold the messages
 uint8_t TxData[8] = {0};
+uint8_t TxData_J1939[8] = {0};
 
 /* USER CODE END PV */
 
@@ -80,6 +83,7 @@ int main(void)
   int16_t raw_ADC_output; // signed 16 bit integer to store ADC reading
   int16_t temperature;
   char msgBuffer[100] = {0}; // Transfer raw message over UART (prolly dont need 100 but for assurances)
+  uint16_t claim_flag = 0;
 
   /* USER CODE END 1 */
 
@@ -114,7 +118,16 @@ int main(void)
   TxData[4] = 23;
   TxData[5] = 22;
   TxData[6] = 0;
-  TxData[7] = 68;
+  TxData[7] = 65;
+
+  TxData_J1939[0] = 0xF3; // Can ID of BMS?
+  TxData_J1939[1] = 0x03; // Module index (zero indexed)?
+  TxData_J1939[2] = 0x81; // CAN ID of expansion module?
+  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+  TxData_J1939[4] = 0x08; // dont know always either 0x00 or 0x08
+  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+  TxData_J1939[6] = 0x1E;
+  TxData_J1939[7] = 0x90;
 //  sprintf(msgBuffer, "sizeof(TxData[7]) = %hu\r\n", TxData[7]);
 //  //  Transmit message in msgBuffer over UART
 //  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
@@ -136,9 +149,41 @@ int main(void)
     // Can implementation
 	  if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	  {
-		  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-		  {
-			  Error_Handler();
+		  for (int i = 0; i < 3; i++) {
+			  if (i == 0) {
+				  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData, &TxMailbox) != HAL_OK)
+				  {
+					  Error_Handler();
+				  }
+				  else {
+					  memset(msgBuffer, '\0', 100);
+					  strcat(msgBuffer, "CAN Message Sent\r\n");
+					  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+				  }
+			  } else if (i == 1) {
+				  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData, &TxMailbox) != HAL_OK)
+				  {
+					  Error_Handler();
+				  }
+				  else {
+					  memset(msgBuffer, '\0', 100);
+					  strcat(msgBuffer, "CAN Message Sent\r\n");
+					  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+				  }
+			  } else if ((i == 2) && (claim_flag == 1)) {
+				  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
+				  {
+					  Error_Handler();
+				  }
+				  else {
+					  memset(msgBuffer, '\0', 100);
+					  strcat(msgBuffer, "CAN Message Sent\r\n");
+					  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+				  }
+				  claim_flag = 0;
+			  } else if (i == 2 && claim_flag == 0) {
+				  claim_flag = 1;
+			  }
 		  }
 	  }
 	  HAL_Delay(100);
@@ -164,6 +209,7 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	// Convert raw int to char to be displayed
+	memset(msgBuffer, '\0', 100);
 	sprintf(msgBuffer, "raw_ADC_output: %hu temperature: %hu\r\n", raw_ADC_output, temperature);
 
 	// Transmit message in msgBuffer over UART
@@ -307,15 +353,15 @@ static void MX_CAN_Init(void)
 
   	CAN_FilterTypeDef canfilterconfig;
 
-    canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+    canfilterconfig.FilterActivation = ENABLE;
     canfilterconfig.FilterBank = 0;
-    canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+    canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
     canfilterconfig.FilterIdHigh = 0x0000;
     canfilterconfig.FilterIdLow = 0x0000;
     canfilterconfig.FilterMaskIdHigh = 0x0000;
     canfilterconfig.FilterMaskIdLow = 0x0000;
     canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
-    canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
+    canfilterconfig.FilterScale = CAN_FILTERSCALE_16BIT;
     canfilterconfig.SlaveStartFilterBank = 0;
 
     if(HAL_CAN_ConfigFilter(&hcan, &canfilterconfig) != HAL_OK)
@@ -328,12 +374,26 @@ static void MX_CAN_Init(void)
   	  Error_Handler();
     }
 
-    TxHeader.DLC = 8; // Data length
-    TxHeader.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
-    TxHeader.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-    TxHeader.StdId = 0x102; // ID of the sender
-    TxHeader.ExtId = 0x01;
-    TxHeader.TransmitGlobalTime = DISABLE;
+    TxHeader_bms.DLC = 8; // Data length
+    TxHeader_bms.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_bms.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_bms.StdId = 0x00; // ID of the sender
+    TxHeader_bms.ExtId = 0x1839F383;
+    TxHeader_bms.TransmitGlobalTime = DISABLE;
+
+    TxHeader_general.DLC = 8; // Data length
+    TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_general.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_general.StdId = 0x00; // ID of the sender
+    TxHeader_general.ExtId = 0x1838F383;
+    TxHeader_general.TransmitGlobalTime = DISABLE;
+
+    TxHeader_J1939.DLC = 8; // Data length
+    TxHeader_J1939.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
+    TxHeader_J1939.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_J1939.StdId = 0x00; // ID of the sender
+    TxHeader_J1939.ExtId = 0x18EEFF83;
+    TxHeader_J1939.TransmitGlobalTime = DISABLE;
 
   /* USER CODE END CAN_Init 2 */
 
