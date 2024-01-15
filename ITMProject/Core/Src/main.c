@@ -42,9 +42,7 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
-
 TIM_HandleTypeDef htim1;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -74,10 +72,12 @@ static void MX_TIM1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  uint32_t raw_ADC_output[23]; // unsigned 16 bit integer to store ADC reading
-  uint32_t temperature[23];
-  char msgBuffer[100] = {0}; // Transfer raw message over UART
-  uint16_t time_val;
+  uint32_t raw_ADC_output[23];
+  int16_t temperature[23];
+  int16_t lowest_temp = 99;
+  int16_t highest_temp = -10;
+  int16_t average_temp = 0;
+  char msgBuffer[100] = {0};
 
   /* USER CODE END 1 */
 
@@ -105,56 +105,77 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start(&htim1);
-  time_val = __HAL_TIM_GET_COUNTER(&htim1);
-  // 16-bit timer able to measure up to 65.5 miliseconds then it wraps around
-  HAL_Delay(10);
-  time_val = __HAL_TIM_GET_COUNTER(&htim1) - time_val;
-  sprintf(msgBuffer, "time_val = %d\r\n", time_val);
-  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//  HAL_TIM_Base_Start(&htim1);
+//  time_val = __HAL_TIM_GET_COUNTER(&htim1);
+//  // 16-bit timer able to measure up to 65.5 miliseconds then it wraps around
+//  HAL_Delay(10);
+//  time_val = __HAL_TIM_GET_COUNTER(&htim1) - time_val;
+//  sprintf(msgBuffer, "time_val = %d\r\n", time_val);
+//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	lowest_temp = 99;
+	highest_temp = -10;
+	average_temp = 0;
 	// Check if select pin has been set low
 	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
 	{
 		HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 12);
-		//temperature[0] = binary_search(raw_ADC_output[0]);
 		for(int i = 0; i < 12; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
+			average_temp += temperature[i];
+			if(temperature[i] < lowest_temp)
+			{
+				lowest_temp = temperature[i];
+			}
+			if(temperature[i] > highest_temp)
+			{
+				highest_temp = temperature[i];
+			}
 			bzero(msgBuffer, 100);
-			sprintf(msgBuffer, "ADC_read_%d: %lu temperature_%d: %lu\r\n", i, raw_ADC_output[i], i, temperature[i]);
+			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
 	}
 	// Check if select pin has been set high
-	else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
 	{
 		HAL_ADC_Start_DMA(&hadc1, &raw_ADC_output[12], 11);
 		for(int i = 12; i < 23; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			sprintf(msgBuffer, "ADC_read_%d: %lu temperature_%d: %lu\r\n", i, raw_ADC_output[i], i, temperature[i]);
+			average_temp += temperature[i];
+			if(temperature[i] < lowest_temp)
+			{
+				lowest_temp = temperature[i];
+			}
+			if(temperature[i] > highest_temp)
+			{
+				highest_temp = temperature[i];
+			}
+			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
 	}
-	else
-	{
-		sprintf(msgBuffer, "GPIO_ReadPin for pin PB8 not detected\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-	}
+
+	average_temp = (average_temp / 23);
+
+	sprintf(msgBuffer, "Low = %d Average = %d High = %d\r\n", lowest_temp, average_temp, highest_temp);
+	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
 	// Add delay of 2 seconds
-	HAL_Delay(2000);
+	HAL_Delay(10000);
 
     /* USER CODE END WHILE */
 
