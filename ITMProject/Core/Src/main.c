@@ -80,11 +80,14 @@ int main(void)
   uint8_t TxData_bms[8] = {0};
   uint8_t TxData_general[8] = {0};
   uint8_t TxData_J1939[8] = {0};
+
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
-  int16_t lowest_temp = 99;
-  int16_t highest_temp = -10;
-  int16_t average_temp = 0;
+
+  int16_t current_lowest_temp = HIGHEST_TEMP;
+  int16_t current_highest_temp = LOWEST_TEMP;
+  int16_t current_average_temp = 0;
+
   char msgBuffer[100] = {0};
   uint16_t claim_flag = 0;
   uint16_t therm_count = 0;
@@ -117,16 +120,20 @@ int main(void)
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
 
   TxData_bms[0] = MODULE_NUMBER;
-  TxData_bms[4] = 23;
-  TxData_bms[5] = 22;
-  TxData_bms[6] = 0;
-  TxData_bms[7] = 68;
+  TxData_bms[4] = THERMISTORS_ENABLED;
+  TxData_bms[5] = HIGHEST_THERM_ID;
+  TxData_bms[6] = LOWEST_THERM_ID;
+  TxData_bms[7] = CHECK_SUM;
 
-  TxData_general[0] = 0x00;
-  TxData_general[3] = 23;
-  TxData_general[6] = 22;
-  TxData_general[7] = 0;
+  TxData_general[0] = 0;
+  TxData_general[3] = THERMISTORS_ENABLED;
+  TxData_general[6] = HIGHEST_THERM_ID;
+  TxData_general[7] = LOWEST_THERM_ID;
 
+  /*
+   * Stil not clear on how this message needs to be formatted so that the BMS
+   * can recognize it as a thermistor expansion module
+   */
   TxData_J1939[0] = 0xF3; // Can ID of BMS?
   TxData_J1939[1] = 0x00; // Module index (zero indexed)?
   TxData_J1939[2] = 0x80; // CAN ID of expansion module?
@@ -135,17 +142,16 @@ int main(void)
   TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
   TxData_J1939[6] = 0x1E;
   TxData_J1939[7] = 0x90;
-//  sprintf(msgBuffer, "sizeof(TxData[7]) = %hu\r\n", TxData[7]);
-//  //  Transmit message in msgBuffer over UART
-//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//  for (int i = 0; i < 7; i++) {
-//	  TxData_bms[7] += TxData_bms[i];
-//  }
 
-//  memset(msgBuffer, '\0', 100);
-//  sprintf(msgBuffer, "TxData[7] = %hu\r\n", TxData[7]);
-//  //  Transmit message in msgBuffer over UART
-//  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+/**
+ * Messing around with timing.
+ * One possible issue for the reason that the bms is not
+ * detecting the STM32 as a TEM is that the messages are
+ * off time.
+ *
+ * Possible Solution: Time how long the current loop takes to execute
+ * and subtract from the 100 ms delay to get a more accurate time.
+ */
 
 //  HAL_TIM_Base_Start(&htim1);
 //  time_val = __HAL_TIM_GET_COUNTER(&htim1);
@@ -162,9 +168,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	lowest_temp = 99;
-	highest_temp = -10;
-	average_temp = 0;
+	// Resetting values every loop
+	current_lowest_temp = HIGHEST_TEMP;
+	current_highest_temp = LOWEST_TEMP;
+	current_average_temp = 0;
 	// Check if select pin has been set low
 	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
 	{
@@ -172,16 +179,17 @@ int main(void)
 		for(int i = 0; i < 12; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			average_temp += temperature[i];
-			if(temperature[i] < lowest_temp)
+			current_average_temp += temperature[i];
+			if(temperature[i] < current_lowest_temp)
 			{
-				lowest_temp = temperature[i];
+				current_lowest_temp = temperature[i];
 			}
-			if(temperature[i] > highest_temp)
+			if(temperature[i] > current_highest_temp)
 			{
-				highest_temp = temperature[i];
+				current_highest_temp = temperature[i];
 			}
-			bzero(msgBuffer, 100);
+			// Lines below are for testing
+			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
@@ -195,15 +203,17 @@ int main(void)
 		for(int i = 12; i < 23; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			average_temp += temperature[i];
-			if(temperature[i] < lowest_temp)
+			current_average_temp += temperature[i];
+			if(temperature[i] < current_lowest_temp)
 			{
-				lowest_temp = temperature[i];
+				current_lowest_temp = temperature[i];
 			}
-			if(temperature[i] > highest_temp)
+			if(temperature[i] > current_highest_temp)
 			{
-				highest_temp = temperature[i];
+				current_highest_temp = temperature[i];
 			}
+			// Lines below are for testing
+			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
@@ -211,20 +221,21 @@ int main(void)
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
 	}
 
-	average_temp = (average_temp / 23);
+	current_average_temp = (current_average_temp / 23);
 
-	TxData_bms[1] = lowest_temp;
-	TxData_bms[2] = highest_temp;
-	TxData_bms[3] = average_temp;
+	TxData_bms[1] = current_lowest_temp;
+	TxData_bms[2] = current_highest_temp;
+	TxData_bms[3] = current_average_temp;
+
+	// Completing checksum
 	for (int i = 0; i < 7; i++) {
 		TxData_bms[7] += TxData_bms[i];
 	}
 
-	TxData_general[1] = therm_count;
+	TxData_general[1] = therm_count + (MODULE_NUMBER - 1) * 23;
 	TxData_general[2] = temperature[therm_count];
-	TxData_general[4] = lowest_temp;
-	TxData_general[5] = highest_temp;
-
+	TxData_general[4] = current_lowest_temp;
+	TxData_general[5] = current_highest_temp;
 
 	therm_count++;
 	if(therm_count == 23)
@@ -272,7 +283,7 @@ int main(void)
 	  }
 	}
 
-	HAL_Delay(1000);
+	HAL_Delay(100);
 
     /* USER CODE END WHILE */
 
@@ -533,21 +544,21 @@ static void MX_CAN_Init(void)
     TxHeader_bms.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
     TxHeader_bms.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
     TxHeader_bms.StdId = 0x00; // ID of the sender
-    TxHeader_bms.ExtId = 0x1839F383;
+    TxHeader_bms.ExtId = BMS_ID;
     TxHeader_bms.TransmitGlobalTime = DISABLE;
 
     TxHeader_general.DLC = 8; // Data length
     TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
     TxHeader_general.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
     TxHeader_general.StdId = 0x00; // ID of the sender
-    TxHeader_general.ExtId = 0x1838F383;
+    TxHeader_general.ExtId = GENERAL_ID;
     TxHeader_general.TransmitGlobalTime = DISABLE;
 
     TxHeader_J1939.DLC = 8; // Data length
     TxHeader_J1939.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
     TxHeader_J1939.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
     TxHeader_J1939.StdId = 0x00; // ID of the sender
-    TxHeader_J1939.ExtId = 0x18EEFF83;
+    TxHeader_J1939.ExtId = CLAIM_ID;
     TxHeader_J1939.TransmitGlobalTime = DISABLE;
 
   /* USER CODE END CAN_Init 2 */
@@ -651,10 +662,14 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
+  char msgBuffer[100] = {0};
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
   {
+	  memset(msgBuffer, '\0', 100);
+	  strcat(msgBuffer, "In error handler\r\n");
+	  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
   }
   /* USER CODE END Error_Handler_Debug */
 }
