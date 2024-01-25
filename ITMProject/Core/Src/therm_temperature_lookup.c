@@ -30,6 +30,23 @@ int16_t look_up_temperature[2][111] = {
 // Binary search algoritm for look up table
 int16_t binary_search(uint32_t adc_target)
 {
+	/**
+	 * "A thermistor fault is triggered if the analog voltage measured from the battery thermistor is
+	 * detected outside of the normal thermal operating range. This error can be triggered if the
+	 * temperature of the thermistor rises above 85C or drops lower than -40C. A shorted or open
+	 * wire can result in artificially high or low measurements that would result in this error code.
+	 * Additionally the use of an incompatible thermistor can cause inaccurate readings and trigger
+	 * this error code" Found here https://www.orionbms.com/faultcodes/DTC%20P0A9C%20-%20Battery%20Thermistor%20Fault.pdf
+	 */
+	if (adc_target > 3369)
+	{
+		return -45;
+	}
+	else if (adc_target < 367)
+	{
+		return 99;
+	}
+
 	uint16_t start = 0;
 	uint16_t end = 110;
 	uint16_t mid = start + (end - start) / 2;
