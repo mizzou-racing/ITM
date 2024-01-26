@@ -151,25 +151,7 @@ int main(void)
   TxData_J1939[6] = 0x1E;
   TxData_J1939[7] = 0x90;
 
-/**
- * Messing around with timing.
- * One possible issue for the reason that the bms is not
- * detecting the STM32 as a TEM is that the messages are
- * off time.
- *
- * Possible Solution: Time how long the current loop takes to execute
- * and subtract from the 100 ms delay to get a more accurate time.
- */
-
   HAL_TIM_Base_Start(&htim3);
-//  time_val = __HAL_TIM_GET_COUNTER(&htim3);
-  // 16-bit timer able to measure up to 65.5 miliseconds then it wraps around
-//  HAL_Delay(50);
-  time_val = __HAL_TIM_GET_COUNTER(&htim3) - time_val;
-  sprintf(msgBuffer, "time_val = %u\r\n", time_val);
-  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-
-//  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -259,7 +241,9 @@ int main(void)
 		  if (i == 0) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
 			  {
-//				  Error_Handler();
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
 			  else {
 				  memset(msgBuffer, '\0', 100);
@@ -269,7 +253,9 @@ int main(void)
 		  } else if (i == 1) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
 			  {
-//				  Error_Handler();
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
 			  else {
 				  memset(msgBuffer, '\0', 100);
@@ -279,7 +265,9 @@ int main(void)
 		  } else if ((i == 2) && (claim_flag == 1)) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
 			  {
-//				  Error_Handler();
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
 			  else {
 				  memset(msgBuffer, '\0', 100);
@@ -542,8 +530,8 @@ static void MX_CAN_Init(void)
   hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = ENABLE;
-  hcan.Init.AutoWakeUp = DISABLE;
-  hcan.Init.AutoRetransmission = DISABLE;
+  hcan.Init.AutoWakeUp = ENABLE;
+  hcan.Init.AutoRetransmission = ENABLE;
   hcan.Init.ReceiveFifoLocked = DISABLE;
   hcan.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
