@@ -164,8 +164,8 @@ int main(void)
 	current_highest_temp = LOWEST_TEMP;
 	current_average_temp = 0;
 	// Check if select pin has been set low
-	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
-	{
+//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
+//	{
 		HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 12);
 		for(int i = 0; i < 12; i++)
 		{
@@ -185,11 +185,11 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	}
+//		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+//	}
 	// Check if select pin has been set high
-	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
-	{
+//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
+//	{
 		HAL_ADC_Start_DMA(&hadc1, &raw_ADC_output[12], 11);
 		for(int i = 12; i < 23; i++)
 		{
@@ -209,8 +209,8 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-	}
+//		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+//	}
 
 	current_average_temp = (current_average_temp / 23);
 
@@ -235,57 +235,57 @@ int main(void)
 		therm_count = 0;
 	}
 
-	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
-	{
-	  for (int i = 0; i < 3; i++) {
-		  if (i == 0) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-		  } else if (i == 1) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-		  } else if ((i == 2) && (claim_flag == 1)) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  claim_flag = 0;
-		  } else if (i == 2 && claim_flag == 0) {
-			  claim_flag = 1;
-		  }
-	  }
-	}
+//	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
+//	{
+//	  for (int i = 0; i < 3; i++) {
+//		  if (i == 0) {
+//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
+//			  {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  else {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "CAN Message Sent\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//		  } else if (i == 1) {
+//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
+//			  {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  else {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "CAN Message Sent\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//		  } else if ((i == 2) && (claim_flag == 1)) {
+//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
+//			  {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  else {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "CAN Message Sent\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  claim_flag = 0;
+//		  } else if (i == 2 && claim_flag == 0) {
+//			  claim_flag = 1;
+//		  }
+//	  }
+//	}
 
 	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
 	{
 		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
 		{
-		  Error_Handler();
+			Error_Handler();
 		}
 		else
 		{
@@ -699,21 +699,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
