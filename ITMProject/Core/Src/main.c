@@ -53,6 +53,7 @@ UART_HandleTypeDef huart2;
 CAN_TxHeaderTypeDef TxHeader_bms;
 CAN_TxHeaderTypeDef TxHeader_general;
 CAN_TxHeaderTypeDef TxHeader_J1939;
+CAN_TxHeaderTypeDef TxHeader_legacy;
 CAN_RxHeaderTypeDef RxHeader;
 
 /* USER CODE END PV */
@@ -84,6 +85,7 @@ int main(void)
   uint8_t TxData_bms[8] = {0};
   uint8_t TxData_general[8] = {0};
   uint8_t TxData_J1939[8] = {0};
+  uint8_t TxData_legacy[4] = {0};
   uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
@@ -95,6 +97,7 @@ int main(void)
 
   char msgBuffer[100] = {0};
   uint16_t claim_flag = 0;
+  uint16_t legacy_counter = 0;
   uint16_t therm_count = 0;
 
   uint16_t time_val = 0;
@@ -127,7 +130,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
 
-  TxData_bms[0] = MODULE_NUMBER;
+  TxData_bms[0] = MODULE_NUMBER - 1;
   TxData_bms[4] = THERMISTORS_ENABLED;
   TxData_bms[5] = HIGHEST_THERM_ID;
   TxData_bms[6] = LOWEST_THERM_ID;
@@ -142,11 +145,11 @@ int main(void)
    * Stil not clear on how this message needs to be formatted so that the BMS
    * can recognize it as a thermistor expansion module
    */
-  TxData_J1939[0] = 0x00; // Can ID of BMS?
+  TxData_J1939[0] = 0xF3; // Can ID of BMS?
   TxData_J1939[1] = 0x00; // Module index (zero indexed)?
   TxData_J1939[2] = 0x80; // CAN ID of expansion module?
   TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-  TxData_J1939[4] = 0x08; // dont know always either 0x00 or 0x08
+  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
   TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
   TxData_J1939[6] = 0x1E;
   TxData_J1939[7] = 0x90;
@@ -158,7 +161,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    time_val = __HAL_TIM_GET_COUNTER(&htim3);
+//    time_val = __HAL_TIM_GET_COUNTER(&htim3);
 	// Resetting values every loop
 	current_lowest_temp = HIGHEST_TEMP;
 	current_highest_temp = LOWEST_TEMP;
@@ -229,85 +232,126 @@ int main(void)
 	TxData_general[4] = current_lowest_temp;
 	TxData_general[5] = current_highest_temp;
 
+  TxData_bms[0] = MODULE_NUMBER - 1;
+  TxData_bms[1] = 0x56;
+  TxData_bms[2] = 0xD7;
+  TxData_bms[3] = 0x0;
+  TxData_bms[4] = THERMISTORS_ENABLED;
+  TxData_bms[5] = 0x0;
+  TxData_bms[6] = 0x0;
+  TxData_bms[7] = 0xEE;
+
+  TxData_general[0] = 0;
+  TxData_general[1] = therm_count;
+  TxData_general[2] = 0xD7;
+  TxData_general[3] = therm_count + 128; // not certain this is right double check
+  TxData_general[4] = 0x56;
+  TxData_general[5] = 0xD7;
+  TxData_general[6] = 0x0;
+  TxData_general[7] = 0x0;
+
+  TxData_J1939[0] = 0xF3; // Can ID of BMS?
+  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
+  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
+  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
+  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+  TxData_J1939[6] = 0x1E;
+  TxData_J1939[7] = 0x90;
+
+  TxData_legacy[2] = 0x01;
+
+  if (legacy_counter == 0) {
+	  TxData_legacy[0] = 0x05;
+	  TxData_legacy[1] = 0x56;
+	  TxData_legacy[3] = 0xE0;
+	  legacy_counter = 1;
+  } else {
+	  TxData_legacy[0] = 0x06;
+	  TxData_legacy[1] = 0xD7;
+	  TxData_legacy[3] = 0x62;
+	  legacy_counter = 0;
+  }
+
 	therm_count++;
-	if(therm_count == 23)
+	if(therm_count == 80)
 	{
 		therm_count = 0;
 	}
-
-//	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
-//	{
-//	  for (int i = 0; i < 3; i++) {
-//		  if (i == 0) {
-//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
-//			  {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  else {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "CAN Message Sent\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//		  } else if (i == 1) {
-//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
-//			  {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  else {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "CAN Message Sent\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//		  } else if ((i == 2) && (claim_flag == 1)) {
-//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
-//			  {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  else {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "CAN Message Sent\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  claim_flag = 0;
-//		  } else if (i == 2 && claim_flag == 0) {
-//			  claim_flag = 1;
-//		  }
-//	  }
-//	}
-
-	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	{
-		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
-		{
-			Error_Handler();
-		}
-		else
-		{
-		  for(int i = 0; i < sizeof(RxData); i++)
-		  {
-			  memset(msgBuffer, '\0', 100);
-			  sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
-			  HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
+	  for (int i = 0; i < 3; i++) {
+		  if (i == 0) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
+			  {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+		  } else if (i == 1) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
+			  {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+		  } else if ((i == 2) && (claim_flag == 1)) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
+			  {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  claim_flag = 0;
+		  } else if (i == 2 && claim_flag == 0) {
+			  claim_flag = 1;
 		  }
-		}
+	  }
 	}
-	else
-	{
-		memset(msgBuffer, '\0', 100);
-		strcat(msgBuffer, "No message received\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-	}
-	time_val = __HAL_TIM_GET_COUNTER(&htim3) - time_val;
+
+//	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+//	{
+//		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
+//		{
+//			Error_Handler();
+//		}
+//		else
+//		{
+//		  for(int i = 0; i < sizeof(RxData); i++)
+//		  {
+//			  memset(msgBuffer, '\0', 100);
+//			  sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
+//			  HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
+//		  }
+//		}
+//	}
+//	else
+//	{
+//		memset(msgBuffer, '\0', 100);
+//		strcat(msgBuffer, "No message received\r\n");
+//		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
+//	}
+//	time_val = __HAL_TIM_GET_COUNTER(&htim3) - time_val;
 //	sprintf(msgBuffer, "time_val = %f\r\n", (((float)time_val) / 1000.0));
 //	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
-	HAL_Delay(100 - (((float)time_val) / 1000.0));
+//	HAL_Delay(100 - (((float)time_val) / 1000.0));
+	HAL_Delay(17);
 
     /* USER CODE END WHILE */
 
@@ -583,6 +627,13 @@ static void MX_CAN_Init(void)
     TxHeader_J1939.StdId = 0x00; // ID of the sender
     TxHeader_J1939.ExtId = CLAIM_ID;
     TxHeader_J1939.TransmitGlobalTime = DISABLE;
+
+    TxHeader_legacy.DLC = 4; // Data length
+    TxHeader_legacy.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
+    TxHeader_legacy.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+    TxHeader_legacy.StdId = 0x80; // ID of the sender
+    TxHeader_legacy.ExtId = 0x00;
+    TxHeader_legacy.TransmitGlobalTime = DISABLE;
 
   /* USER CODE END CAN_Init 2 */
 

@@ -71,13 +71,13 @@ void Error_Handler(void);
 #define SWO_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define BMS_ID 0x1839F380
-#define GENERAL_ID 0x1838F380
-#define CLAIM_ID 0x18EEFF80
+#define BMS_ID 0x1839F381
+#define GENERAL_ID 0x1838F381
+#define CLAIM_ID 0x18EEFF81
 #define MODULE_NUMBER 1
 #define HIGHEST_TEMP 99
 #define LOWEST_TEMP -10
-#define THERMISTORS_ENABLED 23
+#define THERMISTORS_ENABLED 128
 #define HIGHEST_THERM_ID 22
 #define LOWEST_THERM_ID 0
 /**
@@ -87,7 +87,7 @@ void Error_Handler(void);
  * to make 68 or 0x44. The last piece that needs to be added
  * is the value of each bit which is done later on the program.
  */
-#define CHECK_SUM 68
+#define CHECK_SUM 65
 
 /* USER CODE END Private defines */
 
