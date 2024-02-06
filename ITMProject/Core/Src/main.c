@@ -173,6 +173,22 @@ int main(void)
 		for(int i = 0; i < 12; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
+			if(temperature[i] == 86 || temperature[i] == -41)
+			{
+				/*
+				 * error present: possible ways it needs to be handled correctly
+				 * TxData_bms:
+				 * 1) The lowest and or highest temps can be set
+				 *    to either -41 or 86 accordingly. Bytes 1 and 2 (zero based)
+				 * 2) It appears that the average value is set to zero if there
+				 * 	  is an error present. Byte 3 (zero based)
+				 * 3) Number of thermistors enabled should be set to 0x80
+				 * 	  if error is present. Byte 4 (zero based)
+				 * TxData_general:
+				 * 1) Thermistor enabled should be the current thermistor plus 0x80
+				 *    Byte 3 (zero based)
+				 * */
+			}
 			current_average_temp += temperature[i];
 			if(temperature[i] < current_lowest_temp)
 			{
@@ -232,46 +248,46 @@ int main(void)
 	TxData_general[4] = current_lowest_temp;
 	TxData_general[5] = current_highest_temp;
 
-  TxData_bms[0] = MODULE_NUMBER - 1;
-  TxData_bms[1] = 0x56;
-  TxData_bms[2] = 0xD7;
-  TxData_bms[3] = 0x0;
-  TxData_bms[4] = THERMISTORS_ENABLED;
-  TxData_bms[5] = 0x0;
-  TxData_bms[6] = 0x0;
-  TxData_bms[7] = 0xEE;
+	TxData_bms[0] = MODULE_NUMBER - 1;
+	TxData_bms[1] = 0x56;
+	TxData_bms[2] = 0xD7;
+	TxData_bms[3] = 0x0;
+	TxData_bms[4] = 0x80; // Represents # of therms enabled but if 0x80 error present
+	TxData_bms[5] = 0x0;
+	TxData_bms[6] = 0x0;
+	TxData_bms[7] = 0xEE;
 
-  TxData_general[0] = 0;
-  TxData_general[1] = therm_count;
-  TxData_general[2] = 0xD7;
-  TxData_general[3] = therm_count + 128; // not certain this is right double check
-  TxData_general[4] = 0x56;
-  TxData_general[5] = 0xD7;
-  TxData_general[6] = 0x0;
-  TxData_general[7] = 0x0;
+	TxData_general[0] = 0;
+	TxData_general[1] = therm_count; // 1-80 zero based
+	TxData_general[2] = 0xD7;
+	TxData_general[3] = therm_count + 0x80; // Repr. # of therms enabled but therm_count + 0x80 represents error
+	TxData_general[4] = 0x56;
+	TxData_general[5] = 0xD7;
+	TxData_general[6] = 0x0;
+	TxData_general[7] = 0x0;
 
-  TxData_J1939[0] = 0xF3; // Can ID of BMS?
-  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
-  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
-  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
-  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
-  TxData_J1939[6] = 0x1E;
-  TxData_J1939[7] = 0x90;
+	TxData_J1939[0] = 0xF3; // Can ID of BMS?
+	TxData_J1939[1] = 0x00; // Module index (zero indexed)?
+	TxData_J1939[2] = 0x80; // CAN ID of expansion module?
+	TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+	TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
+	TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+	TxData_J1939[6] = 0x1E;
+	TxData_J1939[7] = 0x90;
 
-  TxData_legacy[2] = 0x01;
+	TxData_legacy[2] = 0x01;
 
-  if (legacy_counter == 0) {
+	if (legacy_counter == 0) {
 	  TxData_legacy[0] = 0x05;
 	  TxData_legacy[1] = 0x56;
 	  TxData_legacy[3] = 0xE0;
 	  legacy_counter = 1;
-  } else {
+	} else {
 	  TxData_legacy[0] = 0x06;
 	  TxData_legacy[1] = 0xD7;
 	  TxData_legacy[3] = 0x62;
 	  legacy_counter = 0;
-  }
+	}
 
 	therm_count++;
 	if(therm_count == 80)
@@ -280,7 +296,7 @@ int main(void)
 	}
 	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	{
-	  for (int i = 0; i < 3; i++) {
+	  for (int i = 0; i < 4; i++) {
 		  if (i == 0) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
 			  {
@@ -305,7 +321,19 @@ int main(void)
 				  strcat(msgBuffer, "CAN Message Sent\r\n");
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
-		  } else if ((i == 2) && (claim_flag == 1)) {
+		  } else if (i == 2) {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_legacy, TxData_legacy, &TxMailbox) != HAL_OK)
+			  {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+			  else {
+				  memset(msgBuffer, '\0', 100);
+				  strcat(msgBuffer, "CAN Message Sent\r\n");
+				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			  }
+		  } else if ((i == 3) && (claim_flag == 1)) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
 			  {
 				  memset(msgBuffer, '\0', 100);
@@ -318,11 +346,13 @@ int main(void)
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
 			  claim_flag = 0;
-		  } else if (i == 2 && claim_flag == 0) {
+		  } else if (i == 3 && claim_flag == 0) {
 			  claim_flag = 1;
 		  }
 	  }
 	}
+
+// Receive messages through CAN Bus
 
 //	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
 //	{
@@ -631,7 +661,7 @@ static void MX_CAN_Init(void)
     TxHeader_legacy.DLC = 4; // Data length
     TxHeader_legacy.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
     TxHeader_legacy.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-    TxHeader_legacy.StdId = 0x80; // ID of the sender
+    TxHeader_legacy.StdId = LEGACY_ID; // ID of the sender
     TxHeader_legacy.ExtId = 0x00;
     TxHeader_legacy.TransmitGlobalTime = DISABLE;
 

@@ -40,11 +40,11 @@ int16_t binary_search(uint32_t adc_target)
 	 */
 	if (adc_target > 3369)
 	{
-		return -45;
+		return -41;
 	}
 	else if (adc_target < 367)
 	{
-		return 99;
+		return 86;
 	}
 
 	uint16_t start = 0;
