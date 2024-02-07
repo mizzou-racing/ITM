@@ -84,8 +84,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
   uint8_t TxData_general[8] = {0};
-  uint8_t TxData_J1939[8] = {0};
-  uint8_t TxData_legacy[4] = {0};
+//  uint8_t TxData_J1939[8] = {0};
+//  uint8_t TxData_legacy[4] = {0};
   uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
@@ -100,7 +100,7 @@ int main(void)
   uint16_t legacy_counter = 0;
   uint16_t therm_count = 0;
 
-  uint16_t time_val = 0;
+//  uint16_t time_val = 0;
 
   /* USER CODE END 1 */
 
@@ -136,23 +136,23 @@ int main(void)
   TxData_bms[6] = LOWEST_THERM_ID;
   TxData_bms[7] = CHECK_SUM;
 
-  TxData_general[0] = 0;
-  TxData_general[3] = THERMISTORS_ENABLED;
-  TxData_general[6] = HIGHEST_THERM_ID;
-  TxData_general[7] = LOWEST_THERM_ID;
+//  TxData_general[0] = 0;
+//  TxData_general[3] = THERMISTORS_ENABLED;
+//  TxData_general[6] = HIGHEST_THERM_ID;
+//  TxData_general[7] = LOWEST_THERM_ID;
 
   /*
    * Stil not clear on how this message needs to be formatted so that the BMS
    * can recognize it as a thermistor expansion module
    */
-  TxData_J1939[0] = 0xF3; // Can ID of BMS?
-  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
-  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
-  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
-  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
-  TxData_J1939[6] = 0x1E;
-  TxData_J1939[7] = 0x90;
+//  TxData_J1939[0] = 0xF3; // Can ID of BMS?
+//  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
+//  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
+//  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+//  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
+//  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+//  TxData_J1939[6] = 0x1E;
+//  TxData_J1939[7] = 0x90;
 
   HAL_TIM_Base_Start(&htim3);
   /* USER CODE END 2 */
@@ -242,52 +242,67 @@ int main(void)
 		TxData_bms[7] += TxData_bms[i];
 	}
 
-	// Ask hayden should 23 be changed to 80 because each TEM can monitor up to 80 therms. For emulating purposes
-	TxData_general[1] = (therm_count + (MODULE_NUMBER - 1) * 80);
-	TxData_general[2] = temperature[therm_count];
-	TxData_general[4] = current_lowest_temp;
-	TxData_general[5] = current_highest_temp;
+//	 Ask hayden should 23 be changed to 80 because each TEM can monitor up to 80 therms. For emulating purposes
+//	TxData_general[1] = (therm_count + (MODULE_NUMBER - 1) * 80);
+//	TxData_general[2] = temperature[therm_count];
+//	TxData_general[4] = current_lowest_temp;
+//	TxData_general[5] = current_highest_temp;
 
 	TxData_bms[0] = MODULE_NUMBER - 1;
-	TxData_bms[1] = 0x56;
-	TxData_bms[2] = 0xD7;
-	TxData_bms[3] = 0x0;
-	TxData_bms[4] = 0x80; // Represents # of therms enabled but if 0x80 error present
-	TxData_bms[5] = 0x0;
-	TxData_bms[6] = 0x0;
-	TxData_bms[7] = 0xEE;
-
-	TxData_general[0] = 0;
-	TxData_general[1] = therm_count; // 1-80 zero based
-	TxData_general[2] = 0xD7;
-	TxData_general[3] = therm_count + 0x80; // Repr. # of therms enabled but therm_count + 0x80 represents error
-	TxData_general[4] = 0x56;
-	TxData_general[5] = 0xD7;
-	TxData_general[6] = 0x0;
-	TxData_general[7] = 0x0;
-
-	TxData_J1939[0] = 0xF3; // Can ID of BMS?
-	TxData_J1939[1] = 0x00; // Module index (zero indexed)?
-	TxData_J1939[2] = 0x80; // CAN ID of expansion module?
-	TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-	TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
-	TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
-	TxData_J1939[6] = 0x1E;
-	TxData_J1939[7] = 0x90;
-
-	TxData_legacy[2] = 0x01;
-
-	if (legacy_counter == 0) {
-	  TxData_legacy[0] = 0x05;
-	  TxData_legacy[1] = 0x56;
-	  TxData_legacy[3] = 0xE0;
-	  legacy_counter = 1;
-	} else {
-	  TxData_legacy[0] = 0x06;
-	  TxData_legacy[1] = 0xD7;
-	  TxData_legacy[3] = 0x62;
-	  legacy_counter = 0;
+	TxData_bms[1] = 0x23;
+	TxData_bms[2] = 0x3D;
+	TxData_bms[3] = 0x26;
+	TxData_bms[4] = 0x01; // Represents # of therms enabled but if 0x80 error present
+	TxData_bms[5] = 0x01;
+	TxData_bms[6] = 0x00;
+	TxData_bms[7] = CHECK_SUM;
+	for (int i = 0; i < 7; i++) {
+		TxData_bms[7] += TxData_bms[i];
 	}
+
+		TxData_general[0] = MODULE_NUMBER;
+		TxData_general[1] = 0x21; // 1-80 zero based
+		TxData_general[2] = 0x3F;
+		TxData_general[3] = 0x26; // Repr. # of therms enabled but therm_count + 0x80 represents error
+		TxData_general[4] = 0x01;
+		TxData_general[5] = 0x01;
+		TxData_general[6] = 0x00;
+		TxData_general[7] = CHECK_SUM;
+		for (int i = 0; i < 7; i++){
+			TxData_general[7] += TxData_general[i];
+		}
+
+//	TxData_general[0] = 0;
+//	TxData_general[1] = therm_count; // 1-80 zero based
+//	TxData_general[2] = 0x26;
+//	TxData_general[3] = 0x01; // Repr. # of therms enabled but therm_count + 0x80 represents error
+//	TxData_general[4] = 0x23;
+//	TxData_general[5] = 0x33;
+//	TxData_general[6] = 0x01;
+//	TxData_general[7] = 0x00;
+
+//	TxData_J1939[0] = 0xF3; // Can ID of BMS?
+//	TxData_J1939[1] = 0x00; // Module index (zero indexed)?
+//	TxData_J1939[2] = 0x80; // CAN ID of expansion module?
+//	TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
+//	TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
+//	TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
+//	TxData_J1939[6] = 0x1E;
+//	TxData_J1939[7] = 0x90;
+
+//	TxData_legacy[2] = 0x01;
+//
+//	if (legacy_counter == 0) {
+//	  TxData_legacy[0] = 0x05;
+//	  TxData_legacy[1] = 0x33;
+//	  TxData_legacy[3] = 0xE0;
+//	  legacy_counter = 1;
+//	} else {
+//	  TxData_legacy[0] = 0x06;
+//	  TxData_legacy[1] = 0x23;
+//	  TxData_legacy[3] = 0x62;
+//	  legacy_counter = 0;
+//	}
 
 	therm_count++;
 	if(therm_count == 80)
@@ -309,7 +324,8 @@ int main(void)
 				  strcat(msgBuffer, "CAN Message Sent\r\n");
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
-		  } else if (i == 1) {
+		  }
+		  else if (i == 1) {
 			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
 			  {
 				  memset(msgBuffer, '\0', 100);
@@ -321,34 +337,36 @@ int main(void)
 				  strcat(msgBuffer, "CAN Message Sent\r\n");
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
-		  } else if (i == 2) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_legacy, TxData_legacy, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-		  } else if ((i == 3) && (claim_flag == 1)) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  claim_flag = 0;
-		  } else if (i == 3 && claim_flag == 0) {
-			  claim_flag = 1;
 		  }
+//			  else if (i == 2) {
+//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_legacy, TxData_legacy, &TxMailbox) != HAL_OK)
+//			  {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  else {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "CAN Message Sent\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//		  }
+//	  	  else if ((i == 3) && (claim_flag == 1)) {
+//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
+//			  {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  else {
+//				  memset(msgBuffer, '\0', 100);
+//				  strcat(msgBuffer, "CAN Message Sent\r\n");
+//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			  }
+//			  claim_flag = 0;
+//		  } else if (i == 3 && claim_flag == 0) {
+//			  claim_flag = 1;
+//		  }
 	  }
 	}
 
@@ -648,7 +666,7 @@ static void MX_CAN_Init(void)
     TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
     TxHeader_general.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
     TxHeader_general.StdId = 0x00; // ID of the sender
-    TxHeader_general.ExtId = GENERAL_ID;
+    TxHeader_general.ExtId = BMS_ID + 1;
     TxHeader_general.TransmitGlobalTime = DISABLE;
 
     TxHeader_J1939.DLC = 8; // Data length
