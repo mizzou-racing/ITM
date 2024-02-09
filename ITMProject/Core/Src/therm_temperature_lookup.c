@@ -38,11 +38,11 @@ int16_t binary_search(uint32_t adc_target)
 	 * Additionally the use of an incompatible thermistor can cause inaccurate readings and trigger
 	 * this error code" Found here https://www.orionbms.com/faultcodes/DTC%20P0A9C%20-%20Battery%20Thermistor%20Fault.pdf
 	 */
-	if (adc_target > 3369)
+	if (adc_target >= 3369)
 	{
 		return -41;
 	}
-	else if (adc_target < 367)
+	else if (adc_target <= 494)
 	{
 		return 86;
 	}

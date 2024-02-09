@@ -45,15 +45,11 @@ DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan;
 
-TIM_HandleTypeDef htim3;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader_bms;
 CAN_TxHeaderTypeDef TxHeader_general;
-CAN_TxHeaderTypeDef TxHeader_J1939;
-CAN_TxHeaderTypeDef TxHeader_legacy;
 CAN_RxHeaderTypeDef RxHeader;
 
 /* USER CODE END PV */
@@ -65,7 +61,6 @@ static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_CAN_Init(void);
-static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -84,9 +79,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
   uint8_t TxData_general[8] = {0};
-//  uint8_t TxData_J1939[8] = {0};
-//  uint8_t TxData_legacy[4] = {0};
-  uint8_t RxData[8] = {0};
+//  uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
@@ -96,8 +89,6 @@ int main(void)
   int16_t current_average_temp = 0;
 
   char msgBuffer[100] = {0};
-  uint16_t claim_flag = 0;
-  uint16_t legacy_counter = 0;
   uint16_t therm_count = 0;
 
 //  uint16_t time_val = 0;
@@ -126,7 +117,6 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_CAN_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
 
@@ -136,37 +126,21 @@ int main(void)
   TxData_bms[6] = LOWEST_THERM_ID;
   TxData_bms[7] = CHECK_SUM;
 
-//  TxData_general[0] = 0;
-//  TxData_general[3] = THERMISTORS_ENABLED;
-//  TxData_general[6] = HIGHEST_THERM_ID;
-//  TxData_general[7] = LOWEST_THERM_ID;
-
-  /*
-   * Stil not clear on how this message needs to be formatted so that the BMS
-   * can recognize it as a thermistor expansion module
-   */
-//  TxData_J1939[0] = 0xF3; // Can ID of BMS?
-//  TxData_J1939[1] = 0x00; // Module index (zero indexed)?
-//  TxData_J1939[2] = 0x80; // CAN ID of expansion module?
-//  TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-//  TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
-//  TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
-//  TxData_J1939[6] = 0x1E;
-//  TxData_J1939[7] = 0x90;
-
-  HAL_TIM_Base_Start(&htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//    time_val = __HAL_TIM_GET_COUNTER(&htim3);
 	// Resetting values every loop
 	current_lowest_temp = HIGHEST_TEMP;
 	current_highest_temp = LOWEST_TEMP;
 	current_average_temp = 0;
-	// Check if select pin has been set low
+	/*
+	 * This needs to be changed once PCB revision 2 is finished.
+	 * Make sure PB8 is not set to output and make sure correct select
+	 * pin is being used.
+	 * */
 //	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
 //	{
 		HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 12);
@@ -175,13 +149,11 @@ int main(void)
 			temperature[i] = binary_search(raw_ADC_output[i]);
 			if(temperature[i] == 86 || temperature[i] == -41)
 			{
+//				TxData_bms[4] = 0x80;
+
 				/*
 				 * error present: possible ways it needs to be handled correctly
 				 * TxData_bms:
-				 * 1) The lowest and or highest temps can be set
-				 *    to either -41 or 86 accordingly. Bytes 1 and 2 (zero based)
-				 * 2) It appears that the average value is set to zero if there
-				 * 	  is an error present. Byte 3 (zero based)
 				 * 3) Number of thermistors enabled should be set to 0x80
 				 * 	  if error is present. Byte 4 (zero based)
 				 * TxData_general:
@@ -242,70 +214,36 @@ int main(void)
 		TxData_bms[7] += TxData_bms[i];
 	}
 
-//	 Ask hayden should 23 be changed to 80 because each TEM can monitor up to 80 therms. For emulating purposes
-//	TxData_general[1] = (therm_count + (MODULE_NUMBER - 1) * 80);
-//	TxData_general[2] = temperature[therm_count];
-//	TxData_general[4] = current_lowest_temp;
-//	TxData_general[5] = current_highest_temp;
-
-	TxData_bms[0] = MODULE_NUMBER - 1;
-	TxData_bms[1] = 0x23;
-	TxData_bms[2] = 0x3D;
-	TxData_bms[3] = 0x26;
-	TxData_bms[4] = 0x01; // Represents # of therms enabled but if 0x80 error present
-	TxData_bms[5] = 0x01;
-	TxData_bms[6] = 0x00;
-	TxData_bms[7] = CHECK_SUM;
-	for (int i = 0; i < 7; i++) {
-		TxData_bms[7] += TxData_bms[i];
-	}
-
-		TxData_general[0] = MODULE_NUMBER;
-		TxData_general[1] = 0x21; // 1-80 zero based
-		TxData_general[2] = 0x3F;
-		TxData_general[3] = 0x26; // Repr. # of therms enabled but therm_count + 0x80 represents error
-		TxData_general[4] = 0x01;
-		TxData_general[5] = 0x01;
-		TxData_general[6] = 0x00;
-		TxData_general[7] = CHECK_SUM;
-		for (int i = 0; i < 7; i++){
-			TxData_general[7] += TxData_general[i];
-		}
-
-//	TxData_general[0] = 0;
-//	TxData_general[1] = therm_count; // 1-80 zero based
-//	TxData_general[2] = 0x26;
-//	TxData_general[3] = 0x01; // Repr. # of therms enabled but therm_count + 0x80 represents error
-//	TxData_general[4] = 0x23;
-//	TxData_general[5] = 0x33;
-//	TxData_general[6] = 0x01;
-//	TxData_general[7] = 0x00;
-
-//	TxData_J1939[0] = 0xF3; // Can ID of BMS?
-//	TxData_J1939[1] = 0x00; // Module index (zero indexed)?
-//	TxData_J1939[2] = 0x80; // CAN ID of expansion module?
-//	TxData_J1939[3] = 0xF3; // CAN ID of BMS? reddit post has F3 here but 00 for byte 1...
-//	TxData_J1939[4] = 0x00; // dont know always either 0x00 or 0x08
-//	TxData_J1939[5] = 0x40; // Next three are always same dont know what they represent
-//	TxData_J1939[6] = 0x1E;
-//	TxData_J1939[7] = 0x90;
-
-//	TxData_legacy[2] = 0x01;
-//
-//	if (legacy_counter == 0) {
-//	  TxData_legacy[0] = 0x05;
-//	  TxData_legacy[1] = 0x33;
-//	  TxData_legacy[3] = 0xE0;
-//	  legacy_counter = 1;
-//	} else {
-//	  TxData_legacy[0] = 0x06;
-//	  TxData_legacy[1] = 0x23;
-//	  TxData_legacy[3] = 0x62;
-//	  legacy_counter = 0;
+	/*
+	 * The TxData_bms and general lines below are for testing below with the bms
+	 * If want to test with hard values just uncomment
+	 * */
+//	TxData_bms[0] = MODULE_NUMBER - 1;
+//	TxData_bms[1] = 0x23;
+//	TxData_bms[2] = 0x3D;
+//	TxData_bms[3] = 0x26;
+//	TxData_bms[4] = 0x01; // Represents # of therms enabled but if 0x80 error present
+//	TxData_bms[5] = 0x01;
+//	TxData_bms[6] = 0x00;
+//	TxData_bms[7] = CHECK_SUM;
+//	for (int i = 0; i < 7; i++) {
+//		TxData_bms[7] += TxData_bms[i];
 //	}
 
+//		TxData_general[0] = MODULE_NUMBER;
+//		TxData_general[1] = 0x21; // 1-80 zero based
+//		TxData_general[2] = 0x3F;
+//		TxData_general[3] = 0x26; // Repr. # of therms enabled but therm_count + 0x80 represents error
+//		TxData_general[4] = 0x01;
+//		TxData_general[5] = 0x01;
+//		TxData_general[6] = 0x00;
+//		TxData_general[7] = CHECK_SUM;
+//		for (int i = 0; i < 7; i++){
+//			TxData_general[7] += TxData_general[i];
+//		}
+
 	therm_count++;
-	if(therm_count == 80)
+	if(therm_count == 23)
 	{
 		therm_count = 0;
 	}
@@ -394,11 +332,7 @@ int main(void)
 //		strcat(msgBuffer, "No message received\r\n");
 //		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
 //	}
-//	time_val = __HAL_TIM_GET_COUNTER(&htim3) - time_val;
-//	sprintf(msgBuffer, "time_val = %f\r\n", (((float)time_val) / 1000.0));
-//	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
-//	HAL_Delay(100 - (((float)time_val) / 1000.0));
 	HAL_Delay(17);
 
     /* USER CODE END WHILE */
@@ -669,66 +603,7 @@ static void MX_CAN_Init(void)
     TxHeader_general.ExtId = BMS_ID + 1;
     TxHeader_general.TransmitGlobalTime = DISABLE;
 
-    TxHeader_J1939.DLC = 8; // Data length
-    TxHeader_J1939.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
-    TxHeader_J1939.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-    TxHeader_J1939.StdId = 0x00; // ID of the sender
-    TxHeader_J1939.ExtId = CLAIM_ID;
-    TxHeader_J1939.TransmitGlobalTime = DISABLE;
-
-    TxHeader_legacy.DLC = 4; // Data length
-    TxHeader_legacy.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
-    TxHeader_legacy.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-    TxHeader_legacy.StdId = LEGACY_ID; // ID of the sender
-    TxHeader_legacy.ExtId = 0x00;
-    TxHeader_legacy.TransmitGlobalTime = DISABLE;
-
   /* USER CODE END CAN_Init 2 */
-
-}
-
-/**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
-
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
 
 }
 

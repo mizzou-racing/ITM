@@ -75,19 +75,11 @@ void Error_Handler(void);
 #define BMS_ID 0x1839F380 + MODULE_NUMBER
 #define GENERAL_ID 0x1838F380 + MODULE_NUMBER
 #define CLAIM_ID 0x18EEFF80 + MODULE_NUMBER
-#define LEGACY_ID 0x80
-#define HIGHEST_TEMP 99
-#define LOWEST_TEMP -10
-#define THERMISTORS_ENABLED 80
-#define HIGHEST_THERM_ID 22
-#define LOWEST_THERM_ID 0
-/**
- * 8-bit checksum of the ID 1839F380 is 60 or 0x3C
- * calculated here: https://www.planetimming.com/checksum8.html
- * plus the length of the data which is 8 or 0x8
- * to make 68 or 0x44. The last piece that needs to be added
- * is the value of each bit which is done later on the program.
- */
+#define HIGHEST_TEMP 86
+#define LOWEST_TEMP -41
+#define THERMISTORS_ENABLED 23
+#define HIGHEST_THERM_ID 22 + ((MODULE_NUMBER - 1) * 80)
+#define LOWEST_THERM_ID 0 + ((MODULE_NUMBER - 1) * 80)
 #define CHECK_SUM 65
 
 /* USER CODE END Private defines */
