@@ -49,8 +49,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader_bms;
+// general used for testing purposes
 CAN_TxHeaderTypeDef TxHeader_general;
-CAN_RxHeaderTypeDef RxHeader;
 
 /* USER CODE END PV */
 
@@ -79,7 +79,6 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
   uint8_t TxData_general[8] = {0};
-//  uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
@@ -90,8 +89,6 @@ int main(void)
 
   char msgBuffer[100] = {0};
   uint16_t therm_count = 0;
-
-//  uint16_t time_val = 0;
 
   /* USER CODE END 1 */
 
@@ -136,13 +133,9 @@ int main(void)
 	current_lowest_temp = HIGHEST_TEMP;
 	current_highest_temp = LOWEST_TEMP;
 	current_average_temp = 0;
-	/*
-	 * This needs to be changed once PCB revision 2 is finished.
-	 * Make sure PB8 is not set to output and make sure correct select
-	 * pin is being used.
-	 * */
-//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
-//	{
+
+	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
+	{
 		HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 12);
 		for(int i = 0; i < 12; i++)
 		{
@@ -156,9 +149,6 @@ int main(void)
 				 * TxData_bms:
 				 * 3) Number of thermistors enabled should be set to 0x80
 				 * 	  if error is present. Byte 4 (zero based)
-				 * TxData_general:
-				 * 1) Thermistor enabled should be the current thermistor plus 0x80
-				 *    Byte 3 (zero based)
 				 * */
 			}
 			current_average_temp += temperature[i];
@@ -176,11 +166,11 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
-//		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-//	}
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+	}
 	// Check if select pin has been set high
-//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
-//	{
+	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET)
+	{
 		HAL_ADC_Start_DMA(&hadc1, &raw_ADC_output[12], 11);
 		for(int i = 12; i < 23; i++)
 		{
@@ -200,8 +190,8 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 		}
 		HAL_ADC_Stop_DMA(&hadc1);
-//		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-//	}
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+	}
 
 	current_average_temp = (current_average_temp / 23);
 
@@ -215,7 +205,7 @@ int main(void)
 	}
 
 	/*
-	 * The TxData_bms and general lines below are for testing below with the bms
+	 * The TxData_bms lines below are for testing below with the bms
 	 * If want to test with hard values just uncomment
 	 * */
 //	TxData_bms[0] = MODULE_NUMBER - 1;
@@ -230,29 +220,15 @@ int main(void)
 //		TxData_bms[7] += TxData_bms[i];
 //	}
 
-//		TxData_general[0] = MODULE_NUMBER;
-//		TxData_general[1] = 0x21; // 1-80 zero based
-//		TxData_general[2] = 0x3F;
-//		TxData_general[3] = 0x26; // Repr. # of therms enabled but therm_count + 0x80 represents error
-//		TxData_general[4] = 0x01;
-//		TxData_general[5] = 0x01;
-//		TxData_general[6] = 0x00;
-//		TxData_general[7] = CHECK_SUM;
-//		for (int i = 0; i < 7; i++){
-//			TxData_general[7] += TxData_general[i];
-//		}
-
 	therm_count++;
-	if(therm_count == 23)
-	{
+	if(therm_count == 23) {
 		therm_count = 0;
 	}
 	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	{
 	  for (int i = 0; i < 4; i++) {
 		  if (i == 0) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK)
-			  {
+			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK) {
 				  memset(msgBuffer, '\0', 100);
 				  strcat(msgBuffer, "Failed to send CAN message\r\n");
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
@@ -263,75 +239,8 @@ int main(void)
 				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 			  }
 		  }
-		  else if (i == 1) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_general, TxData_general, &TxMailbox) != HAL_OK)
-			  {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-		  }
-//			  else if (i == 2) {
-//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_legacy, TxData_legacy, &TxMailbox) != HAL_OK)
-//			  {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  else {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "CAN Message Sent\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//		  }
-//	  	  else if ((i == 3) && (claim_flag == 1)) {
-//			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_J1939, TxData_J1939, &TxMailbox) != HAL_OK)
-//			  {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  else {
-//				  memset(msgBuffer, '\0', 100);
-//				  strcat(msgBuffer, "CAN Message Sent\r\n");
-//				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//			  }
-//			  claim_flag = 0;
-//		  } else if (i == 3 && claim_flag == 0) {
-//			  claim_flag = 1;
-//		  }
 	  }
 	}
-
-// Receive messages through CAN Bus
-
-//	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
-//	{
-//		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
-//		{
-//			Error_Handler();
-//		}
-//		else
-//		{
-//		  for(int i = 0; i < sizeof(RxData); i++)
-//		  {
-//			  memset(msgBuffer, '\0', 100);
-//			  sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
-//			  HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-//		  }
-//		}
-//	}
-//	else
-//	{
-//		memset(msgBuffer, '\0', 100);
-//		strcat(msgBuffer, "No message received\r\n");
-//		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-//	}
 
 	HAL_Delay(17);
 
@@ -421,7 +330,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_9;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
@@ -431,7 +340,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Channel = ADC_CHANNEL_8;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -440,7 +349,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_REGULAR_RANK_3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -449,7 +358,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_13;
+  sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -458,7 +367,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = ADC_REGULAR_RANK_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -467,7 +376,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Channel = ADC_CHANNEL_11;
   sConfig.Rank = ADC_REGULAR_RANK_6;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -476,7 +385,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = ADC_REGULAR_RANK_7;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -485,7 +394,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Channel = ADC_CHANNEL_12;
   sConfig.Rank = ADC_REGULAR_RANK_8;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -494,7 +403,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_9;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -503,7 +412,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_10;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -512,7 +421,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Channel = ADC_CHANNEL_6;
   sConfig.Rank = ADC_REGULAR_RANK_11;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -521,7 +430,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Channel = ADC_CHANNEL_7;
   sConfig.Rank = ADC_REGULAR_RANK_12;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -673,11 +582,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
