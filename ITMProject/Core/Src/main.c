@@ -78,10 +78,11 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
-  uint8_t TxData_general[8] = {0};
+//  uint8_t TxData_general[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
+  uint16_t error_index = 23;
 
   int16_t current_lowest_temp = HIGHEST_TEMP;
   int16_t current_highest_temp = LOWEST_TEMP;
@@ -140,9 +141,10 @@ int main(void)
 		for(int i = 0; i < 12; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			if(temperature[i] == 86 || temperature[i] == -41)
+			if((temperature[i] >= 86 || temperature[i] <= -41) && error_index == 23)
 			{
-//				TxData_bms[4] = 0x80;
+				error_index = i;
+				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;
 
 				/*
 				 * error present: possible ways it needs to be handled correctly
@@ -150,6 +152,11 @@ int main(void)
 				 * 3) Number of thermistors enabled should be set to 0x80
 				 * 	  if error is present. Byte 4 (zero based)
 				 * */
+			}
+			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
+			{
+				error_index = 23;
+				TxData_bms[4] = THERMISTORS_ENABLED;
 			}
 			current_average_temp += temperature[i];
 			if(temperature[i] < current_lowest_temp)
@@ -176,6 +183,23 @@ int main(void)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
 			current_average_temp += temperature[i];
+			if((temperature[i] >= 86 || temperature[i] <= -41) && error_index == 23)
+			{
+				error_index = i;
+				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;;
+
+				/*
+				 * error present: possible ways it needs to be handled correctly
+				 * TxData_bms:
+				 * 3) Number of thermistors enabled should be set to 0x80
+				 * 	  if error is present. Byte 4 (zero based)
+				 * */
+			}
+			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
+			{
+				error_index = 23;
+				TxData_bms[4] = THERMISTORS_ENABLED;
+			}
 			if(temperature[i] < current_lowest_temp)
 			{
 				current_lowest_temp = temperature[i];
@@ -198,12 +222,23 @@ int main(void)
 	TxData_bms[1] = current_lowest_temp;
 	TxData_bms[2] = current_highest_temp;
 	TxData_bms[3] = current_average_temp;
+	TxData_bms[7] = CHECK_SUM;
 
 	// Completing checksum
 	for (int i = 0; i < 7; i++) {
 		TxData_bms[7] += TxData_bms[i];
+		memset(msgBuffer, '\0', 100);
+		sprintf(msgBuffer, "TxData_bms[7] = TxData_bms[7] + TxData_bms[%d] = %d + %d = %d\r\n",
+				i, TxData_bms[7], TxData_bms[i], TxData_bms[7] + TxData_bms[i]);
+		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 	}
 
+	for(int i = 0; i < 8; i++)
+	{
+		memset(msgBuffer, '\0', 100);
+		sprintf(msgBuffer, "TxData_bms[%d] = %d\r\n", i, TxData_bms[i]);
+		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+	}
 	/*
 	 * The TxData_bms lines below are for testing below with the bms
 	 * If want to test with hard values just uncomment

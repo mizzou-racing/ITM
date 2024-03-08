@@ -78,8 +78,9 @@ void Error_Handler(void);
 #define HIGHEST_TEMP 86
 #define LOWEST_TEMP -41
 #define THERMISTORS_ENABLED 23
-#define HIGHEST_THERM_ID 22 + ((MODULE_NUMBER - 1) * 80)
-#define LOWEST_THERM_ID 0 + ((MODULE_NUMBER - 1) * 80)
+//#define HIGHEST_THERM_ID 22 + ((MODULE_NUMBER - 1) * 80)
+#define HIGHEST_THERM_ID 1
+#define LOWEST_THERM_ID 0 //+ ((MODULE_NUMBER - 1) * 80)
 #define CHECK_SUM 65
 
 /* USER CODE END Private defines */
