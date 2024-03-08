@@ -51,6 +51,9 @@ UART_HandleTypeDef huart2;
 CAN_TxHeaderTypeDef TxHeader_bms;
 // general used for testing purposes
 CAN_TxHeaderTypeDef TxHeader_general;
+// Rx used for testing
+CAN_RxHeaderTypeDef RxHeader;
+
 
 /* USER CODE END PV */
 
@@ -79,6 +82,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
 //  uint8_t TxData_general[8] = {0};
+  // Rx Data used for testing
+  uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
@@ -134,6 +139,9 @@ int main(void)
 	current_lowest_temp = HIGHEST_TEMP;
 	current_highest_temp = LOWEST_TEMP;
 	current_average_temp = 0;
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_RESET);
+	// LED for testing
+//	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
 
 	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 	{
@@ -166,6 +174,10 @@ int main(void)
 			if(temperature[i] > current_highest_temp)
 			{
 				current_highest_temp = temperature[i];
+				if(current_highest_temp >= 60)
+				{
+//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+				}
 			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
@@ -207,6 +219,10 @@ int main(void)
 			if(temperature[i] > current_highest_temp)
 			{
 				current_highest_temp = temperature[i];
+				if(current_highest_temp >= 60)
+				{
+//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+				}
 			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
@@ -259,22 +275,48 @@ int main(void)
 	if(therm_count == 23) {
 		therm_count = 0;
 	}
+
 	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	{
-	  for (int i = 0; i < 4; i++) {
-		  if (i == 0) {
-			  if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK) {
+		for (int i = 0; i < 2; i++) {
+			if (i == 0) {
+				if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK) {
+					memset(msgBuffer, '\0', 100);
+					strcat(msgBuffer, "Failed to send CAN message\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+				}
+				else {
 				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "Failed to send CAN message\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
-			  else {
-				  memset(msgBuffer, '\0', 100);
-				  strcat(msgBuffer, "CAN Message Sent\r\n");
-				  HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-			  }
+					strcat(msgBuffer, "CAN Message Sent\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_SET);
+				}
+			}
+		}
+	}
+
+	// Rx recieving for testing purposes
+	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+	{
+		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
+		{
+//			  Error_Handler();
+		}
+		else
+		{
+		  for(int i = 0; i < sizeof(RxData); i++)
+		  {
+			  memset(msgBuffer, '\0', 100);
+			  sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
+			  HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
 		  }
-	  }
+		}
+	}
+	else
+	{
+		memset(msgBuffer, '\0', 100);
+		strcat(msgBuffer, "No message received\r\n");
+		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
 	}
 
 	HAL_Delay(17);
@@ -618,6 +660,12 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
@@ -625,6 +673,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB12 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
