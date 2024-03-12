@@ -49,11 +49,12 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader_bms;
+CAN_TxHeaderTypeDef TxHeader_rpi;
+
 // general used for testing purposes
 CAN_TxHeaderTypeDef TxHeader_general;
 // Rx used for testing
 CAN_RxHeaderTypeDef RxHeader;
-
 
 /* USER CODE END PV */
 
@@ -81,20 +82,21 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
-//  uint8_t TxData_general[8] = {0};
+  uint8_t TxData_rpi[8] = {0};
+  // uint8_t TxData_general[8] = {0};
   // Rx Data used for testing
-  uint8_t RxData[8] = {0};
+//  uint8_t RxData[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
-  uint16_t error_index = 23;
 
+  uint16_t therm_count = 0;
+  uint16_t error_index = 23;
   int16_t current_lowest_temp = HIGHEST_TEMP;
   int16_t current_highest_temp = LOWEST_TEMP;
   int16_t current_average_temp = 0;
 
   char msgBuffer[100] = {0};
-  uint16_t therm_count = 0;
 
   /* USER CODE END 1 */
 
@@ -118,7 +120,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
-  MX_ADC1_Init();
+   MX_ADC1_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
@@ -128,6 +130,8 @@ int main(void)
   TxData_bms[5] = HIGHEST_THERM_ID;
   TxData_bms[6] = LOWEST_THERM_ID;
   TxData_bms[7] = CHECK_SUM;
+
+  TxData_rpi[0] = MODULE_NUMBER;
 
   /* USER CODE END 2 */
 
@@ -141,7 +145,7 @@ int main(void)
 	current_average_temp = 0;
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_RESET);
 	// LED for testing
-//	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+	// HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
 
 	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 	{
@@ -153,13 +157,6 @@ int main(void)
 			{
 				error_index = i;
 				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;
-
-				/*
-				 * error present: possible ways it needs to be handled correctly
-				 * TxData_bms:
-				 * 3) Number of thermistors enabled should be set to 0x80
-				 * 	  if error is present. Byte 4 (zero based)
-				 * */
 			}
 			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
 			{
@@ -179,6 +176,17 @@ int main(void)
 //					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
 				}
 			}
+//			if(i == 8 || i == 3)
+//			{
+//				memset(msgBuffer, '\0', 100);
+//				sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
+//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//				if(temperature[i] > highest_temp)
+//				{
+//					highest_temp = temperature[i];
+//
+//				}
+//			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
@@ -187,7 +195,7 @@ int main(void)
 		HAL_ADC_Stop_DMA(&hadc1);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 	}
-	// Check if select pin has been set high
+
 	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET)
 	{
 		HAL_ADC_Start_DMA(&hadc1, &raw_ADC_output[12], 11);
@@ -199,13 +207,6 @@ int main(void)
 			{
 				error_index = i;
 				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;;
-
-				/*
-				 * error present: possible ways it needs to be handled correctly
-				 * TxData_bms:
-				 * 3) Number of thermistors enabled should be set to 0x80
-				 * 	  if error is present. Byte 4 (zero based)
-				 * */
 			}
 			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
 			{
@@ -224,6 +225,16 @@ int main(void)
 //					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
 				}
 			}
+//			if(i == 20 || i == 15)
+//			{
+//				memset(msgBuffer, '\0', 100);
+//				sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
+//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//				if(temperature[i] > highest_temp)
+//				{
+//					highest_temp = temperature[i];
+//				}
+//			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
@@ -243,18 +254,18 @@ int main(void)
 	// Completing checksum
 	for (int i = 0; i < 7; i++) {
 		TxData_bms[7] += TxData_bms[i];
-		memset(msgBuffer, '\0', 100);
-		sprintf(msgBuffer, "TxData_bms[7] = TxData_bms[7] + TxData_bms[%d] = %d + %d = %d\r\n",
-				i, TxData_bms[7], TxData_bms[i], TxData_bms[7] + TxData_bms[i]);
-		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//		memset(msgBuffer, '\0', 100);
+//		sprintf(msgBuffer, "TxData_bms[7] = TxData_bms[7] + TxData_bms[%d] = %d + %d = %d\r\n",
+//				i, TxData_bms[7], TxData_bms[i], TxData_bms[7] + TxData_bms[i]);
+//		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 	}
 
-	for(int i = 0; i < 8; i++)
-	{
-		memset(msgBuffer, '\0', 100);
-		sprintf(msgBuffer, "TxData_bms[%d] = %d\r\n", i, TxData_bms[i]);
-		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-	}
+//	for(int i = 0; i < 8; i++)
+//	{
+//		memset(msgBuffer, '\0', 100);
+//		sprintf(msgBuffer, "TxData_bms[%d] = %d\r\n", i, TxData_bms[i]);
+//		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//	}
 	/*
 	 * The TxData_bms lines below are for testing below with the bms
 	 * If want to test with hard values just uncomment
@@ -271,6 +282,10 @@ int main(void)
 //		TxData_bms[7] += TxData_bms[i];
 //	}
 
+//	memset(msgBuffer, '\0', 100);
+//	sprintf(msgBuffer, "highest temperature recorded = %d\r\n", highest_temp);
+//	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+
 	therm_count++;
 	if(therm_count == 23) {
 		therm_count = 0;
@@ -278,46 +293,76 @@ int main(void)
 
 	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
 	{
-		for (int i = 0; i < 2; i++) {
-			if (i == 0) {
-				if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK) {
-					memset(msgBuffer, '\0', 100);
-					strcat(msgBuffer, "Failed to send CAN message\r\n");
-					HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-				}
-				else {
-				  memset(msgBuffer, '\0', 100);
-					strcat(msgBuffer, "CAN Message Sent\r\n");
-					HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_SET);
-				}
-			}
+		if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_bms, TxData_bms, &TxMailbox) != HAL_OK) {
+			memset(msgBuffer, '\0', 100);
+			strcat(msgBuffer, "Failed to send CAN message\r\n");
+			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+		}
+		else {
+			memset(msgBuffer, '\0', 100);
+			strcat(msgBuffer, "CAN Message Sent\r\n");
+			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_SET);
 		}
 	}
 
+	// Messages for rpi dashboard
+	// 4 messages 1: 0-5 2: 6-11 3: 12 - 17 4: 18 - 22
+//	if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) > 0)
+//	{
+//		for (int i = 0; i < 4; i++) {
+//			TxData_rpi[1] = ((MODULE_NUMBER - 1) * 23) + (i * 6);
+//			TxData_rpi[2] = temperature[(i * 6)];
+//			TxData_rpi[3] = temperature[(i * 6) + 1];
+//			TxData_rpi[4] = temperature[(i * 6) + 2];
+//			TxData_rpi[5] = temperature[(i * 6) + 3];
+//			TxData_rpi[6] = temperature[(i * 6) + 4];
+//			TxData_rpi[7] = temperature[(i * 6) + 5];
+//			//Printing for testing purposes
+//			for(int i = 0; i < 8; i++)
+//			{
+//				memset(msgBuffer, '\0', 100);
+//				sprintf(msgBuffer, "TxData_rpi[%d] = %d\r\n", i, TxData_rpi[i]);
+//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			}
+//			if(HAL_CAN_AddTxMessage(&hcan, &TxHeader_rpi, TxData_rpi, &TxMailbox) != HAL_OK) {
+//				memset(msgBuffer, '\0', 100);
+//				strcat(msgBuffer, "Failed to send CAN message\r\n");
+//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			}
+//			else {
+////				memset(msgBuffer, '\0', 100);
+////				strcat(msgBuffer, "CAN Message Sent\r\n");
+////				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//			}
+//		}
+//	}
+
 	// Rx recieving for testing purposes
-	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
-	{
-		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
-		{
-//			  Error_Handler();
-		}
-		else
-		{
-		  for(int i = 0; i < sizeof(RxData); i++)
-		  {
-			  memset(msgBuffer, '\0', 100);
-			  sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
-			  HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-		  }
-		}
-	}
-	else
-	{
-		memset(msgBuffer, '\0', 100);
-		strcat(msgBuffer, "No message received\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-	}
+//	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+//	{
+//		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
+//		{
+//			memset(msgBuffer, '\0', 100);
+//			strcat(msgBuffer, "Failed to send CAN message\r\n");
+//			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
+//		}
+//		else
+//		{
+//			for(int i = 0; i < sizeof(RxData); i++)
+//			{
+//				memset(msgBuffer, '\0', 100);
+//				sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
+//				HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
+//			}
+//		}
+//	}
+//	else
+//	{
+//		memset(msgBuffer, '\0', 100);
+//		strcat(msgBuffer, "No message received\r\n");
+//		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
+//	}
 
 	HAL_Delay(17);
 
@@ -404,6 +449,8 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
+  HAL_ADCEx_Calibration_Start(&hadc1);
 
   /** Configure Regular Channel
   */
@@ -581,6 +628,13 @@ static void MX_CAN_Init(void)
     TxHeader_bms.StdId = 0x00; // ID of the sender
     TxHeader_bms.ExtId = BMS_ID;
     TxHeader_bms.TransmitGlobalTime = DISABLE;
+
+    TxHeader_rpi.DLC = 8; // Data length
+	TxHeader_rpi.IDE = CAN_ID_STD; // Specifies a standard identifier for the header
+	TxHeader_rpi.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
+	TxHeader_rpi.StdId = MODULE_NUMBER; // ID of the sender
+	TxHeader_rpi.ExtId = 0x00;
+	TxHeader_rpi.TransmitGlobalTime = DISABLE;
 
     TxHeader_general.DLC = 8; // Data length
     TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
