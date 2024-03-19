@@ -51,11 +51,6 @@ UART_HandleTypeDef huart2;
 CAN_TxHeaderTypeDef TxHeader_bms;
 CAN_TxHeaderTypeDef TxHeader_rpi;
 
-// general used for testing purposes
-CAN_TxHeaderTypeDef TxHeader_general;
-// Rx used for testing
-CAN_RxHeaderTypeDef RxHeader;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,16 +77,14 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   uint8_t TxData_bms[8] = {0};
-  uint8_t TxData_rpi[8] = {0};
-  // uint8_t TxData_general[8] = {0};
-  // Rx Data used for testing
-//  uint8_t RxData[8] = {0};
+//  uint8_t TxData_rpi[8] = {0};
 
   uint32_t raw_ADC_output[23] = {0};
   int16_t temperature[23] = {0};
+  uint16_t error_index[23] = {0};
 
   uint16_t therm_count = 0;
-  uint16_t error_index = 23;
+  uint16_t therms_failed = 0;
   int16_t current_lowest_temp = HIGHEST_TEMP;
   int16_t current_highest_temp = LOWEST_TEMP;
   int16_t current_average_temp = 0;
@@ -120,7 +113,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
-   MX_ADC1_Init();
+  MX_ADC1_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
   uint32_t TxMailbox = CAN_TX_MAILBOX0;
@@ -131,7 +124,7 @@ int main(void)
   TxData_bms[6] = LOWEST_THERM_ID;
   TxData_bms[7] = CHECK_SUM;
 
-  TxData_rpi[0] = MODULE_NUMBER;
+//  TxData_rpi[0] = MODULE_NUMBER;
 
   /* USER CODE END 2 */
 
@@ -143,9 +136,9 @@ int main(void)
 	current_lowest_temp = HIGHEST_TEMP;
 	current_highest_temp = LOWEST_TEMP;
 	current_average_temp = 0;
+	therms_failed = 0;
+	memset(error_index, 0, sizeof(error_index));
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_RESET);
-	// LED for testing
-	// HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
 
 	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 	{
@@ -153,40 +146,27 @@ int main(void)
 		for(int i = 0; i < 12; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			if((temperature[i] >= 86 || temperature[i] <= -41) && error_index == 23)
+			if(temperature[i] <= -41) // Faulty thermistor
 			{
-				error_index = i;
+				error_index[i] = 1;
+				therms_failed++;
+			}
+			else if(temperature[i] >= 60) // Battery too hot shut car down
+			{
 				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;
 			}
-			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
+			else // Temperature in range
 			{
-				error_index = 23;
-				TxData_bms[4] = THERMISTORS_ENABLED;
-			}
-			current_average_temp += temperature[i];
-			if(temperature[i] < current_lowest_temp)
-			{
-				current_lowest_temp = temperature[i];
-			}
-			if(temperature[i] > current_highest_temp)
-			{
-				current_highest_temp = temperature[i];
-				if(current_highest_temp >= 60)
+				current_average_temp += temperature[i];
+				if(temperature[i] < current_lowest_temp)
 				{
-//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+					current_lowest_temp = temperature[i];
+				}
+				if(temperature[i] > current_highest_temp)
+				{
+					current_highest_temp = temperature[i];
 				}
 			}
-//			if(i == 8 || i == 3)
-//			{
-//				memset(msgBuffer, '\0', 100);
-//				sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
-//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//				if(temperature[i] > highest_temp)
-//				{
-//					highest_temp = temperature[i];
-//
-//				}
-//			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
@@ -202,39 +182,27 @@ int main(void)
 		for(int i = 12; i < 23; i++)
 		{
 			temperature[i] = binary_search(raw_ADC_output[i]);
-			current_average_temp += temperature[i];
-			if((temperature[i] >= 86 || temperature[i] <= -41) && error_index == 23)
+			if(temperature[i] <= -41) // Faulty thermistor
 			{
-				error_index = i;
-				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;;
+				therms_failed++;
+				error_index[i] = 1;
 			}
-			else if(error_index < 23 && !(temperature[error_index] >= 86 || temperature[error_index] <= -41))
+			else if(temperature[i] >= 60) // Battery too hot shut car down
 			{
-				error_index = 23;
-				TxData_bms[4] = THERMISTORS_ENABLED;
+				TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;
 			}
-			if(temperature[i] < current_lowest_temp)
+			else // Temperature in range
 			{
-				current_lowest_temp = temperature[i];
-			}
-			if(temperature[i] > current_highest_temp)
-			{
-				current_highest_temp = temperature[i];
-				if(current_highest_temp >= 60)
+				current_average_temp += temperature[i];
+				if(temperature[i] < current_lowest_temp)
 				{
-//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+					current_lowest_temp = temperature[i];
+				}
+				if(temperature[i] > current_highest_temp)
+				{
+					current_highest_temp = temperature[i];
 				}
 			}
-//			if(i == 20 || i == 15)
-//			{
-//				memset(msgBuffer, '\0', 100);
-//				sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
-//				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//				if(temperature[i] > highest_temp)
-//				{
-//					highest_temp = temperature[i];
-//				}
-//			}
 			// Lines below are for testing
 			memset(msgBuffer, '\0', 100);
 			sprintf(msgBuffer, "ADC_read_%d: %ld temperature_%d: %d\r\n", i, raw_ADC_output[i], i, temperature[i]);
@@ -244,7 +212,22 @@ int main(void)
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 	}
 
-	current_average_temp = (current_average_temp / 23);
+	/*
+	 * FSAE rules states you must be monitoring at least 20%
+	 * of thermistors. Currently monitoring 115, if 35 of those
+	 * fault due to a bad wire the car must shut down. Since 115 is
+	 * split between 5 boards if one detects at least 7 then it shuts down.
+	 * */
+	if(therms_failed >= 7)
+	{
+		TxData_bms[4] = 0x80 + THERMISTORS_ENABLED;
+	}
+
+	/*
+	 * THERMISTORS_ENABLED - therms_failed because discard any faulted therm values if therms
+	 * failed is below 7 and only taking average of therms that are in range.
+	 * */
+	current_average_temp = (current_average_temp / (THERMISTORS_ENABLED - therms_failed));
 
 	TxData_bms[1] = current_lowest_temp;
 	TxData_bms[2] = current_highest_temp;
@@ -254,37 +237,7 @@ int main(void)
 	// Completing checksum
 	for (int i = 0; i < 7; i++) {
 		TxData_bms[7] += TxData_bms[i];
-//		memset(msgBuffer, '\0', 100);
-//		sprintf(msgBuffer, "TxData_bms[7] = TxData_bms[7] + TxData_bms[%d] = %d + %d = %d\r\n",
-//				i, TxData_bms[7], TxData_bms[i], TxData_bms[7] + TxData_bms[i]);
-//		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 	}
-
-//	for(int i = 0; i < 8; i++)
-//	{
-//		memset(msgBuffer, '\0', 100);
-//		sprintf(msgBuffer, "TxData_bms[%d] = %d\r\n", i, TxData_bms[i]);
-//		HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//	}
-	/*
-	 * The TxData_bms lines below are for testing below with the bms
-	 * If want to test with hard values just uncomment
-	 * */
-//	TxData_bms[0] = MODULE_NUMBER - 1;
-//	TxData_bms[1] = 0x23;
-//	TxData_bms[2] = 0x3D;
-//	TxData_bms[3] = 0x26;
-//	TxData_bms[4] = 0x01; // Represents # of therms enabled but if 0x80 error present
-//	TxData_bms[5] = 0x01;
-//	TxData_bms[6] = 0x00;
-//	TxData_bms[7] = CHECK_SUM;
-//	for (int i = 0; i < 7; i++) {
-//		TxData_bms[7] += TxData_bms[i];
-//	}
-
-//	memset(msgBuffer, '\0', 100);
-//	sprintf(msgBuffer, "highest temperature recorded = %d\r\n", highest_temp);
-//	HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 
 	therm_count++;
 	if(therm_count == 23) {
@@ -336,32 +289,6 @@ int main(void)
 ////				HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
 //			}
 //		}
-//	}
-
-	// Rx recieving for testing purposes
-//	if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
-//	{
-//		if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK)
-//		{
-//			memset(msgBuffer, '\0', 100);
-//			strcat(msgBuffer, "Failed to send CAN message\r\n");
-//			HAL_UART_Transmit(&huart2, (uint8_t*)msgBuffer, strlen(msgBuffer), HAL_MAX_DELAY);
-//		}
-//		else
-//		{
-//			for(int i = 0; i < sizeof(RxData); i++)
-//			{
-//				memset(msgBuffer, '\0', 100);
-//				sprintf(msgBuffer,"Received message RxData[%d] = %d\r\n", i, RxData[i]);
-//				HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
-//			}
-//		}
-//	}
-//	else
-//	{
-//		memset(msgBuffer, '\0', 100);
-//		strcat(msgBuffer, "No message received\r\n");
-//		HAL_UART_Transmit(&huart2, (uint8_t *)msgBuffer, sizeof(msgBuffer), HAL_MAX_DELAY);
 //	}
 
 	HAL_Delay(17);
@@ -635,13 +562,6 @@ static void MX_CAN_Init(void)
 	TxHeader_rpi.StdId = MODULE_NUMBER; // ID of the sender
 	TxHeader_rpi.ExtId = 0x00;
 	TxHeader_rpi.TransmitGlobalTime = DISABLE;
-
-    TxHeader_general.DLC = 8; // Data length
-    TxHeader_general.IDE = CAN_ID_EXT; // Specifies a standard identifier for the header
-    TxHeader_general.RTR = CAN_RTR_DATA; // Specifies the type of frame in this case a data frame
-    TxHeader_general.StdId = 0x00; // ID of the sender
-    TxHeader_general.ExtId = BMS_ID + 1;
-    TxHeader_general.TransmitGlobalTime = DISABLE;
 
   /* USER CODE END CAN_Init 2 */
 
