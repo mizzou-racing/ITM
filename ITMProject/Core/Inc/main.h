@@ -82,6 +82,7 @@ void Error_Handler(void);
 #define HIGHEST_THERM_ID 1
 #define LOWEST_THERM_ID 0 //+ ((MODULE_NUMBER - 1) * 80)
 #define CHECK_SUM 65
+#define FILTER_PARAMETER 256
 
 /* USER CODE END Private defines */
 

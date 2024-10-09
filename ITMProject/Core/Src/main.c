@@ -145,7 +145,8 @@ int main(void)
 		HAL_ADC_Start_DMA(&hadc1, raw_ADC_output, 12);
 		for(int i = 0; i < 12; i++)
 		{
-			temperature[i] = binary_search(raw_ADC_output[i]);
+      //Implement an IIR filter as specified in ADBMS6830 datasheet
+			temperature[i] = temperature[i] + ((binary_search(raw_ADC_output[i]) - temperature[i]) / (float)FILTER_PARAMETER);
 			if(temperature[i] <= -41) // Faulty thermistor
 			{
 				error_index[i] = 1;
@@ -181,7 +182,8 @@ int main(void)
 		HAL_ADC_Start_DMA(&hadc1, &raw_ADC_output[12], 11);
 		for(int i = 12; i < 23; i++)
 		{
-			temperature[i] = binary_search(raw_ADC_output[i]);
+      //Implement an IIR filter as specified in ADBMS6830 datasheet
+			temperature[i] = temperature[i] + ((binary_search(raw_ADC_output[i]) - temperature[i]) / (float)FILTER_PARAMETER);
 			if(temperature[i] <= -41) // Faulty thermistor
 			{
 				therms_failed++;
